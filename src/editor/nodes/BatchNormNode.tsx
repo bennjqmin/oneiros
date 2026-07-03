@@ -38,7 +38,8 @@ registerNode({
   type: 'batchNormNode',
   label: 'BatchNorm',
   description: 'Batch normalisation (1d or 2d auto-detected)',
-  category: 'activation',
+  category: 'layers',
+  paletteGroup: 'convolutional',
   defaultData: {
     label: 'BatchNorm',
     eps: 1e-5,

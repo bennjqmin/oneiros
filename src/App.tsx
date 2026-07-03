@@ -1,10 +1,11 @@
+import { t } from './theme/tokens'
 import { useEffect, useRef, useState } from 'react'
 import FlowEditor from './editor/FlowEditor'
 import Sidebar from './components/Sidebar'
 import PropertyPanel from './components/PropertyPanel'
 import Topbar from './components/Topbar'
 import type { AppView } from './components/Topbar'
-import CodePanel from './components/CodePanel'
+import CodePanel, { type CodeMode } from './components/CodePanel'
 import TrainingPanel from './components/TrainingPanel'
 import AIPanel from './components/AIPanel'
 import DatasetPage from './pages/DatasetPage'
@@ -14,10 +15,13 @@ import { useProjectStore } from './store/useProjectStore'
 import { useTrainingStore } from './store/useTrainingStore'
 import { useIsMobile } from './hooks/useBreakpoint'
 import { LoadingLabel } from './components/panelChrome'
+import { useThemeSync } from './theme/useThemeSync'
 
 const AUTOSAVE_DELAY = 1500
 
 export default function App() {
+  useThemeSync()
+
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
   const saveCurrentProject = useProjectStore((s) => s.saveCurrentProject)
   const markDirty = useProjectStore((s) => s.markDirty)
@@ -27,12 +31,21 @@ export default function App() {
 
   const [view, setView] = useState<AppView>('model')
   const [pendingView, setPendingView] = useState<AppView | null>(null)
-  const [codeOpen, setCodeOpen] = useState(false)
+  const [codePanel, setCodePanel] = useState<{ mode: CodeMode } | null>(null)
   const [trainOpen, setTrainOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  function openCode(mode: CodeMode) {
+    setCodePanel({ mode })
+    if (mode === 'xgboost') setTrainOpen(true)
+  }
+
+  function closeCode() {
+    setCodePanel(null)
+  }
 
   function handleViewChange(next: AppView) {
     if (next === view) return
@@ -42,6 +55,13 @@ export default function App() {
       setPendingView(null)
     })
   }
+
+  // Close code panel when switching away from its context
+  useEffect(() => {
+    if (!codePanel) return
+    if (codePanel.mode === 'nn' && view !== 'model') closeCode()
+    if (codePanel.mode === 'pipeline' && view !== 'dataset') closeCode()
+  }, [view, codePanel])
 
   // Auto-open training panel when training starts
   useEffect(() => {
@@ -110,14 +130,12 @@ export default function App() {
       flexDirection: 'column',
       height: '100dvh',
       width: '100vw',
-      background: '#09090b',
+      background: t.bgBase,
       overflow: 'hidden',
     }}>
       <Topbar
         view={view}
         onViewChange={handleViewChange}
-        codeOpen={codeOpen}
-        onToggleCode={() => setCodeOpen((o) => !o)}
         trainOpen={trainOpen}
         onToggleTrain={() => setTrainOpen((o) => !o)}
         aiOpen={aiOpen}
@@ -147,8 +165,19 @@ export default function App() {
               {view === 'model' && <FlowEditor />}
               {aiOpen && <AIPanel onClose={() => setAiOpen(false)} mobile={isMobile} />}
             </main>
-            {codeOpen && <CodePanel onClose={() => setCodeOpen(false)} mobile={isMobile} />}
-            {trainOpen && <TrainingPanel onClose={() => setTrainOpen(false)} mobile={isMobile} />}
+            {trainOpen && (
+              <TrainingPanel
+                onClose={() => { closeCode(); setTrainOpen(false) }}
+                mobile={isMobile}
+                onOpenCode={openCode}
+              />
+            )}
+            {trainOpen && codePanel?.mode === 'xgboost' && (
+              <CodePanel mode="xgboost" onClose={closeCode} mobile={isMobile} />
+            )}
+            {codePanel?.mode === 'nn' && (
+              <CodePanel mode="nn" onClose={closeCode} mobile={isMobile} />
+            )}
           </div>
           {!isMobile && <PropertyPanel />}
           {isMobile && (
@@ -163,15 +192,23 @@ export default function App() {
           flexDirection: 'column',
           overflow: 'hidden',
           zIndex: view === 'dataset' ? 2 : 0,
+          minHeight: 0,
         }}>
-          <DatasetPage mobile={isMobile} active={view === 'dataset'} />
+          <DatasetPage
+            mobile={isMobile}
+            active={view === 'dataset'}
+            onOpenCode={() => openCode('pipeline')}
+          />
+          {codePanel?.mode === 'pipeline' && (
+            <CodePanel mode="pipeline" onClose={closeCode} mobile={isMobile} />
+          )}
         </div>
 
         {pendingView && (
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: 'rgba(9,9,11,0.55)',
+            background: t.overlay,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

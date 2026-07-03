@@ -1,7 +1,10 @@
+import { t } from '../theme/tokens'
 import { useState, useRef } from 'react'
 import { useProjectStore } from '../store/useProjectStore'
 import { useGraphStore } from '../store/useGraphStore'
 import { AppLogo } from './AppLogo'
+import ThemeSwitcher from './ThemeSwitcher'
+import { useThemeSync } from '../theme/useThemeSync'
 
 function HomeIcon() {
   return (
@@ -35,15 +38,6 @@ function PlayIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
       <polygon points="5 3 19 12 5 21 5 3" />
-    </svg>
-  )
-}
-
-function CodeIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="16 18 22 12 16 6" />
-      <polyline points="8 6 2 12 8 18" />
     </svg>
   )
 }
@@ -100,8 +94,6 @@ export type AppView = 'model' | 'dataset'
 interface TopbarProps {
   view: AppView
   onViewChange: (v: AppView) => void
-  codeOpen: boolean
-  onToggleCode: () => void
   trainOpen: boolean
   onToggleTrain: () => void
   aiOpen: boolean
@@ -114,9 +106,10 @@ interface TopbarProps {
 }
 
 export default function Topbar({
-  view, onViewChange, codeOpen, onToggleCode, trainOpen, onToggleTrain, aiOpen, onToggleAI,
+  view, onViewChange, trainOpen, onToggleTrain, aiOpen, onToggleAI,
   isMobile, paletteOpen, onTogglePalette, inspectorOpen, onToggleInspector,
 }: TopbarProps) {
+  useThemeSync()
   const { name, isDirty, setName, saveToFile, loadFromFile, goHome } = useProjectStore()
   const canUndo = useGraphStore((s) => s.canUndo)
   const canRedo = useGraphStore((s) => s.canRedo)
@@ -152,8 +145,8 @@ export default function Topbar({
     <header
       style={{
         height: 52,
-        background: '#0d0e14',
-        borderBottom: '1px solid #1e1e2e',
+        background: t.topbarBg,
+        borderBottom: `1px solid ${t.topbarBorder}`,
         display: 'flex',
         alignItems: 'center',
         padding: '0 14px',
@@ -170,11 +163,11 @@ export default function Topbar({
           display: 'flex', alignItems: 'center', gap: 4,
           padding: '4px 7px', borderRadius: 5,
           border: 'none', background: 'transparent',
-          color: '#52525b', fontSize: 11, cursor: 'pointer',
+          color: t.textFaint, fontSize: 11, cursor: 'pointer',
           transition: 'color 0.1s',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = '#a1a1aa' }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = '#52525b' }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = t.textSecondary }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = t.textFaint }}
       >
         <HomeIcon />
       </button>
@@ -183,7 +176,7 @@ export default function Topbar({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         <AppLogo size={isMobile ? 22 : 26} />
         {!isMobile && (
-          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', color: '#e4e4e7' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', color: t.textPrimary }}>
             oneiros
           </span>
         )}
@@ -200,10 +193,10 @@ export default function Topbar({
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
           style={{
-            background: '#18181b',
-            border: '1px solid #7c3aed',
+            background: t.bgElevated,
+            border: `1px solid ${t.accent}`,
             borderRadius: 5,
-            color: '#e4e4e7',
+            color: t.textPrimary,
             fontSize: 13,
             padding: '3px 8px',
             outline: 'none',
@@ -216,7 +209,7 @@ export default function Topbar({
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#d4d4d8',
+            color: t.textBody,
             fontSize: 13,
             cursor: 'text',
             padding: '3px 6px',
@@ -234,7 +227,7 @@ export default function Topbar({
                 width: 5,
                 height: 5,
                 borderRadius: '50%',
-                background: '#7c3aed',
+                background: t.accent,
                 display: 'inline-block',
                 flexShrink: 0,
               }}
@@ -246,7 +239,7 @@ export default function Topbar({
       {!isMobile && <Divider />}
 
       {/* View switcher */}
-      <div style={{ display: 'flex', gap: 2, background: '#18181b', border: '1px solid #27272a', borderRadius: 6, padding: 2, flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 2, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 6, padding: 2, flexShrink: 0 }}>
         <ViewTab active={view === 'model'} onClick={() => onViewChange('model')} label={isMobile ? 'Model' : 'Model'} compact={isMobile} />
         <ViewTab active={view === 'dataset'} onClick={() => onViewChange('dataset')} label={isMobile ? 'Data' : 'Dataset'} compact={isMobile} />
       </div>
@@ -298,20 +291,13 @@ export default function Topbar({
       <Divider />
 
       {/* File + view actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6, flexShrink: 0, overflowX: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6, overflowX: 'auto', minWidth: 0 }}>
         {!isMobile && <TopbarButton onClick={loadFromFile} icon={<FolderOpenIcon />} label="Load" />}
         {!isMobile && <TopbarButton onClick={saveToFile} icon={<SaveIcon />} label="Save" accent />}
         {view === 'model' && (
           <>
             {!isMobile && <Divider />}
-            <TopbarButton
-              onClick={onToggleCode}
-              icon={<CodeIcon />}
-              label="Code"
-              active={codeOpen}
-              iconOnly={isMobile}
-              title="Code"
-            />
             <TopbarButton
               onClick={onToggleTrain}
               icon={<PlayIcon />}
@@ -323,6 +309,9 @@ export default function Topbar({
             />
           </>
         )}
+        </div>
+        {!isMobile && <Divider />}
+        <ThemeSwitcher />
         {!isMobile && <Divider />}
         <TopbarButton
           onClick={onToggleAI}
@@ -341,7 +330,7 @@ export default function Topbar({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function Divider() {
-  return <div style={{ width: 1, height: 20, background: '#27272a', flexShrink: 0 }} />
+  return <div style={{ width: 1, height: 20, background: t.borderDefault, flexShrink: 0 }} />
 }
 
 function ViewTab({ active, onClick, label, compact }: { active: boolean; onClick: () => void; label: string; compact?: boolean }) {
@@ -352,16 +341,16 @@ function ViewTab({ active, onClick, label, compact }: { active: boolean; onClick
         padding: compact ? '4px 8px' : '4px 10px',
         borderRadius: 4,
         border: 'none',
-        background: active ? '#27272a' : 'transparent',
-        color: active ? '#e4e4e7' : '#71717a',
+        background: active ? t.borderDefault : 'transparent',
+        color: active ? t.textPrimary : t.textMuted,
         fontSize: compact ? 11 : 12,
         fontWeight: 500,
         cursor: 'pointer',
         transition: 'background 0.1s, color 0.1s',
         whiteSpace: 'nowrap',
       }}
-      onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = '#a1a1aa' }}
-      onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = '#71717a' }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = t.textSecondary }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = t.textMuted }}
     >
       {label}
     </button>
@@ -418,20 +407,20 @@ function IconButton({
         borderRadius: 6,
         border: active ? '1px solid #7c3aed' : '1px solid transparent',
         background: active ? '#7c3aed1a' : 'transparent',
-        color: disabled ? '#3f3f46' : active ? '#c4b5fd' : '#71717a',
+        color: disabled ? t.textDisabled : active ? '#c4b5fd' : t.textMuted,
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'background 0.1s, color 0.1s',
         flexShrink: 0,
       }}
       onMouseEnter={(e) => {
         if (!disabled) {
-          e.currentTarget.style.background = '#27272a'
-          e.currentTarget.style.color = '#e4e4e7'
+          e.currentTarget.style.background = t.borderDefault
+          e.currentTarget.style.color = t.textPrimary
         }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.color = disabled ? '#3f3f46' : '#71717a'
+        e.currentTarget.style.color = disabled ? t.textDisabled : t.textMuted
       }}
     >
       {icon}
@@ -451,9 +440,9 @@ interface TopbarButtonProps {
 }
 
 function TopbarButton({ onClick, icon, label, accent, active, disabled, title, iconOnly }: TopbarButtonProps) {
-  const bg = accent ? '#7c3aed1a' : active ? '#27272a' : 'transparent'
-  const color = disabled ? '#3f3f46' : accent ? '#a78bfa' : active ? '#e4e4e7' : '#a1a1aa'
-  const border = accent ? '1px solid #7c3aed' : active ? '1px solid #3f3f46' : '1px solid #27272a'
+  const bg = accent ? '#7c3aed1a' : active ? t.borderDefault : 'transparent'
+  const color = disabled ? t.textDisabled : accent ? t.accentMuted : active ? t.textPrimary : t.textSecondary
+  const border = accent ? '1px solid #7c3aed' : active ? '1px solid #3f3f46' : `1px solid ${t.borderDefault}`
 
   return (
     <button
@@ -477,8 +466,8 @@ function TopbarButton({ onClick, icon, label, accent, active, disabled, title, i
       }}
       onMouseEnter={(e) => {
         if (!disabled) {
-          e.currentTarget.style.background = accent ? '#7c3aed33' : '#27272a'
-          e.currentTarget.style.color = accent ? '#c4b5fd' : '#e4e4e7'
+          e.currentTarget.style.background = accent ? '#7c3aed33' : t.borderDefault
+          e.currentTarget.style.color = accent ? '#c4b5fd' : t.textPrimary
         }
       }}
       onMouseLeave={(e) => {

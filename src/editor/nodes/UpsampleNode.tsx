@@ -38,6 +38,7 @@ registerNode({
   label: 'Upsample',
   description: 'Rescale spatial dimensions by scale factor',
   category: 'layers',
+  paletteGroup: 'computerVision',
   defaultData: {
     label: 'Upsample',
     scaleFactor: 2,

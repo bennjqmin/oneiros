@@ -1,19 +1,49 @@
+import { t } from '../theme/tokens'
 import { useEffect, useRef, useState } from 'react'
 import { useGraphStore } from '../store/useGraphStore'
 import { useProjectStore } from '../store/useProjectStore'
+import { useDatasetStore } from '../store/useDatasetStore'
+import { useTrainingStore } from '../store/useTrainingStore'
 import { compileGraph } from '../editor/compiler/compile'
+import { compilePipeline } from '../editor/compiler/compilePipeline'
+import { compileXGBoost } from '../editor/compiler/compileXGBoost'
+import type { CodeMode, CompileResult } from '../editor/compiler/types'
 
 interface CodePanelProps {
+  mode: CodeMode
   onClose: () => void
   mobile?: boolean
 }
 
-export default function CodePanel({ onClose, mobile }: CodePanelProps) {
+function compileForMode(mode: CodeMode, projectName: string): CompileResult {
+  if (mode === 'nn') {
+    const { nodes, edges } = useGraphStore.getState()
+    const r = compileGraph(nodes, edges, projectName)
+    const safe = projectName.replace(/\s+/g, '_').toLowerCase()
+    return { ...r, filename: `${safe}_model.py`, label: 'Generated PyTorch' }
+  }
+
+  if (mode === 'pipeline') {
+    const ds = useDatasetStore.getState()
+    return compilePipeline(ds.dataset, ds.targetColumn, ds.pipelineNodes, ds.pipelineEdges)
+  }
+
+  const ds = useDatasetStore.getState()
+  const config = useTrainingStore.getState().config
+  return compileXGBoost(ds.dataset, ds.targetColumn, ds.pipelineNodes, ds.pipelineEdges, config)
+}
+
+export default function CodePanel({ mode, onClose, mobile }: CodePanelProps) {
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
   const projectName = useProjectStore((s) => s.name)
+  const dataset = useDatasetStore((s) => s.dataset)
+  const targetColumn = useDatasetStore((s) => s.targetColumn)
+  const pipelineNodes = useDatasetStore((s) => s.pipelineNodes)
+  const pipelineEdges = useDatasetStore((s) => s.pipelineEdges)
+  const trainingConfig = useTrainingStore((s) => s.config)
 
-  const [result, setResult] = useState<{ code: string; errors: string[]; warnings: string[] } | null>(null)
+  const [result, setResult] = useState<CompileResult | null>(null)
   const [copied, setCopied] = useState(false)
   const [height, setHeight] = useState(320)
   const drag = useRef({ active: false, startY: 0, startH: 0 })
@@ -36,9 +66,18 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
   }
 
   useEffect(() => {
-    const compiled = compileGraph(nodes, edges, projectName)
-    setResult(compiled)
-  }, [nodes, edges, projectName])
+    setResult(compileForMode(mode, projectName))
+  }, [
+    mode,
+    projectName,
+    nodes,
+    edges,
+    dataset,
+    targetColumn,
+    pipelineNodes,
+    pipelineEdges,
+    trainingConfig,
+  ])
 
   function handleDownload() {
     if (!result?.code) return
@@ -46,7 +85,7 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${projectName.replace(/\s+/g, '_').toLowerCase()}.py`
+    a.download = result.filename
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -66,8 +105,8 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
       style={{
         height: mobile ? 'min(85dvh, 100%)' : height,
         maxHeight: mobile ? '85dvh' : undefined,
-        background: '#0d0e14',
-        borderTop: '1px solid #1e1e2e',
+        background: t.topbarBg,
+        borderTop: `1px solid ${t.borderSubtle}`,
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
@@ -75,7 +114,6 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
         zIndex: mobile ? 30 : undefined,
       }}
     >
-      {/* Resize handle */}
       {!mobile && (
       <div
         onMouseDown={onResizeMouseDown}
@@ -89,14 +127,13 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
       />
       )}
-      {/* Panel header */}
       <div
         style={{
           height: 36,
           display: 'flex',
           alignItems: 'center',
           padding: '0 14px',
-          borderBottom: '1px solid #1e1e2e',
+          borderBottom: `1px solid ${t.borderSubtle}`,
           gap: 10,
           flexShrink: 0,
         }}
@@ -107,10 +144,10 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
             fontWeight: 600,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            color: '#52525b',
+            color: t.textFaint,
           }}
         >
-          Generated PyTorch
+          {result?.label ?? 'Generated Code'}
         </span>
 
         {!hasErrors && result?.warnings && result.warnings.length > 0 && (
@@ -141,22 +178,21 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#52525b',
+            color: t.textFaint,
             cursor: 'pointer',
             padding: '2px 4px',
             fontSize: 16,
             lineHeight: 1,
             borderRadius: 4,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#e4e4e7' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#52525b' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = t.textPrimary }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = t.textFaint }}
           title="Close"
         >
           ×
         </button>
       </div>
 
-      {/* Code body */}
       <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
         {hasErrors ? (
           <div style={{ padding: 16 }}>
@@ -195,7 +231,7 @@ export default function CodePanel({ onClose, mobile }: CodePanelProps) {
               padding: '14px 18px',
               fontSize: 12,
               lineHeight: '1.7',
-              color: '#d4d4d8',
+              color: t.textBody,
               fontFamily: 'ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace',
               whiteSpace: 'pre',
               tabSize: 4,
@@ -224,24 +260,26 @@ function PanelButton({
       style={{
         padding: '3px 9px',
         borderRadius: 5,
-        border: accent ? '1px solid #7c3aed' : '1px solid #27272a',
+        border: accent ? '1px solid #7c3aed' : `1px solid ${t.borderDefault}`,
         background: accent ? '#7c3aed1a' : 'transparent',
-        color: accent ? '#a78bfa' : '#71717a',
+        color: accent ? t.accentMuted : t.textMuted,
         fontSize: 11,
         fontWeight: 500,
         cursor: 'pointer',
         transition: 'background 0.1s, color 0.1s',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = accent ? '#7c3aed33' : '#27272a'
-        e.currentTarget.style.color = accent ? '#c4b5fd' : '#e4e4e7'
+        e.currentTarget.style.background = accent ? '#7c3aed33' : t.borderDefault
+        e.currentTarget.style.color = accent ? '#c4b5fd' : t.textPrimary
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = accent ? '#7c3aed1a' : 'transparent'
-        e.currentTarget.style.color = accent ? '#a78bfa' : '#71717a'
+        e.currentTarget.style.color = accent ? t.accentMuted : t.textMuted
       }}
     >
       {label}
     </button>
   )
 }
+
+export type { CodeMode }

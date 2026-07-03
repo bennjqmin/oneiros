@@ -33,3 +33,17 @@ import './ActivationNode'
 import './ConvTranspose2dNode'
 import './UpsampleNode'
 import './BackboneNode'
+
+// Utility / Transformer building blocks
+import './GaussianNoiseNode'
+import './ReshapeNode'
+import './LayerNormNode'
+import './EmbeddingNode'
+import './PositionalEncodingNode'
+import './FeedForwardNode'
+import './MultiHeadAttentionNode'
+
+// Merge / multi-input utility
+import './ConcatenateNode'
+import './AddNode'
+import './MultiplyNode'

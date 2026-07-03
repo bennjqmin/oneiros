@@ -48,6 +48,7 @@ registerNode({
   label: 'ConvTranspose2d',
   description: 'Transposed 2D convolution (upsampling / decoder)',
   category: 'layers',
+  paletteGroup: 'computerVision',
   defaultData: {
     label: 'ConvTranspose2d',
     outChannels: 32,

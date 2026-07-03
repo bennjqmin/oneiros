@@ -1,7 +1,9 @@
+import { t } from '../theme/tokens'
 import { useRef, useState } from 'react'
 import { useGraphStore } from '../store/useGraphStore'
 import { getNodeDefinition } from '../editor/registry/nodeRegistry'
 import type { NodeField } from '../types/node'
+import { useThemeSync } from '../theme/useThemeSync'
 import { COLLAPSED_PANEL_WIDTH, CollapseBtn, CollapsedBar, MobileDrawerBackdrop, MobileDrawerHeader, mobileDrawerStyle } from './panelChrome'
 
 const MIN_WIDTH = 200
@@ -14,6 +16,7 @@ interface PropertyPanelProps {
 }
 
 export default function PropertyPanel({ mobile, open, onClose }: PropertyPanelProps = {}) {
+  useThemeSync()
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId)
   const nodes = useGraphStore((s) => s.nodes)
   const updateNodeData = useGraphStore((s) => s.updateNodeData)
@@ -33,7 +36,7 @@ export default function PropertyPanel({ mobile, open, onClose }: PropertyPanelPr
       {!selectedNode ? (
         <EmptyState />
       ) : !def ? (
-        <div style={{ padding: 14, fontSize: 12, color: '#52525b' }}>
+        <div style={{ padding: 14, fontSize: 12, color: t.textFaint }}>
           No definition found for node type "{selectedNode.type}".
         </div>
       ) : (
@@ -90,8 +93,8 @@ export default function PropertyPanel({ mobile, open, onClose }: PropertyPanelPr
       style={{
         width: panelWidth,
         minWidth: panelWidth,
-        background: '#111113',
-        borderLeft: '1px solid #1e1e2e',
+        background: t.bgPanel,
+        borderLeft: `1px solid ${t.borderSubtle}`,
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
@@ -124,18 +127,18 @@ export default function PropertyPanel({ mobile, open, onClose }: PropertyPanelPr
       <div
         style={{
           padding: '13px 14px 11px',
-          borderBottom: '1px solid #1e1e2e',
+          borderBottom: `1px solid ${t.borderSubtle}`,
           display: 'flex',
           alignItems: 'center',
           gap: 8,
         }}
       >
         <CollapseBtn side="right" onClick={() => setCollapsed(true)} title="Collapse inspector" />
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#52525b' }}>
+        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: t.textFaint }}>
           Inspector
         </span>
         {selectedNode && def && (
-          <span style={{ fontSize: 11, color: '#71717a', marginLeft: 'auto' }}>{def.label}</span>
+          <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 'auto' }}>{def.label}</span>
         )}
       </div>
 
@@ -166,7 +169,7 @@ function EmptyState() {
         <rect x="3" y="3" width="18" height="18" rx="3" />
         <path d="M9 9h6M9 12h6M9 15h4" strokeLinecap="round" />
       </svg>
-      <p style={{ fontSize: 12, color: '#3f3f46', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
+      <p style={{ fontSize: 12, color: t.textDisabled, textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
         Select a node on the canvas to inspect its properties
       </p>
     </div>
@@ -180,12 +183,12 @@ function NodeIdBadge({ id }: { id: string }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 5,
-        background: '#18181b',
-        border: '1px solid #27272a',
+        background: t.bgElevated,
+        border: `1px solid ${t.borderDefault}`,
         borderRadius: 5,
         padding: '3px 8px',
         fontSize: 10,
-        color: '#52525b',
+        color: t.textFaint,
         fontFamily: 'ui-monospace, monospace',
       }}
     >
@@ -205,17 +208,17 @@ function FieldControl({ field, value, onChange }: FieldControlProps) {
     display: 'block',
     fontSize: 11,
     fontWeight: 500,
-    color: '#71717a',
+    color: t.textMuted,
     marginBottom: 5,
     letterSpacing: '0.02em',
   }
 
   const inputBaseStyle: React.CSSProperties = {
     width: '100%',
-    background: '#18181b',
-    border: '1px solid #27272a',
+    background: t.bgElevated,
+    border: `1px solid ${t.borderDefault}`,
     borderRadius: 6,
-    color: '#e4e4e7',
+    color: t.textPrimary,
     fontSize: 12,
     padding: '6px 9px',
     outline: 'none',
@@ -235,8 +238,8 @@ function FieldControl({ field, value, onChange }: FieldControlProps) {
           max={field.max}
           step={field.step ?? 1}
           onChange={(e) => onChange(Number(e.target.value))}
-          onFocus={(e) => (e.target.style.borderColor = '#7c3aed')}
-          onBlur={(e) => (e.target.style.borderColor = '#27272a')}
+          onFocus={(e) => (e.target.style.borderColor = t.accent)}
+          onBlur={(e) => (e.target.style.borderColor = t.borderDefault)}
           style={inputBaseStyle}
         />
       )}
@@ -247,8 +250,8 @@ function FieldControl({ field, value, onChange }: FieldControlProps) {
           value={typeof value === 'string' ? value : ''}
           placeholder={field.placeholder}
           onChange={(e) => onChange(e.target.value)}
-          onFocus={(e) => (e.target.style.borderColor = '#7c3aed')}
-          onBlur={(e) => (e.target.style.borderColor = '#27272a')}
+          onFocus={(e) => (e.target.style.borderColor = t.accent)}
+          onBlur={(e) => (e.target.style.borderColor = t.borderDefault)}
           style={inputBaseStyle}
         />
       )}
@@ -257,12 +260,12 @@ function FieldControl({ field, value, onChange }: FieldControlProps) {
         <select
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
-          onFocus={(e) => (e.target.style.borderColor = '#7c3aed')}
-          onBlur={(e) => (e.target.style.borderColor = '#27272a')}
+          onFocus={(e) => (e.target.style.borderColor = t.accent)}
+          onBlur={(e) => (e.target.style.borderColor = t.borderDefault)}
           style={{ ...inputBaseStyle, cursor: 'pointer', appearance: 'none' }}
         >
           {field.options?.map((opt) => (
-            <option key={opt.value} value={opt.value} style={{ background: '#18181b' }}>
+            <option key={opt.value} value={opt.value} style={{ background: t.bgElevated }}>
               {opt.label}
             </option>
           ))}
@@ -284,7 +287,7 @@ function FieldControl({ field, value, onChange }: FieldControlProps) {
               width: 32,
               height: 18,
               borderRadius: 9,
-              background: value ? '#7c3aed' : '#27272a',
+              background: value ? t.accent : t.borderDefault,
               position: 'relative',
               cursor: 'pointer',
               transition: 'background 0.15s',
@@ -299,12 +302,12 @@ function FieldControl({ field, value, onChange }: FieldControlProps) {
                 width: 12,
                 height: 12,
                 borderRadius: '50%',
-                background: '#e4e4e7',
+                background: t.textPrimary,
                 transition: 'left 0.15s',
               }}
             />
           </div>
-          <span style={{ fontSize: 12, color: value ? '#d4d4d8' : '#52525b' }}>
+          <span style={{ fontSize: 12, color: value ? t.textBody : t.textFaint }}>
             {value ? 'Enabled' : 'Disabled'}
           </span>
         </label>

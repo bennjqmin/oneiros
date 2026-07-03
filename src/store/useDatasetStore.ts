@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import Papa from 'papaparse'
+import { downloadCSV } from '../editor/dataset/mergeCsv'
 import {
   applyNodeChanges,
   applyEdgeChanges,
@@ -150,6 +151,8 @@ interface DatasetState {
   // Tabular actions
   loadFromCSV: (file: File) => Promise<void>
   loadFromJSON: (file: File) => Promise<void>
+  loadMergedDataset: (name: string, rows: Record<string, unknown>[]) => void
+  exportDatasetAsCSV: () => void
   clearDataset: () => void
   setTargetColumn: (col: string | null) => void
   onPipelineNodesChange: (changes: NodeChange<AppNode>[]) => void
@@ -259,6 +262,29 @@ export const useDatasetStore = create<DatasetState>((set, get) => ({
     } catch {
       console.error('Failed to parse JSON dataset')
     }
+  },
+
+  loadMergedDataset(name, rows) {
+    const columns = buildColumns(rows)
+    const dataset: LoadedDataset = {
+      id: `ds-${Date.now()}`,
+      name,
+      rows,
+      columns,
+    }
+    const lastCol = columns[columns.length - 1]?.name ?? null
+    set({
+      dataset,
+      targetColumn: lastCol,
+      pipelineNodes: [makeSourceNode(dataset.name)],
+      pipelineEdges: [],
+    })
+  },
+
+  exportDatasetAsCSV() {
+    const { dataset } = get()
+    if (!dataset || dataset.rows.length === 0) return
+    downloadCSV(dataset.rows, dataset.name)
   },
 
   clearDataset() {

@@ -1,0 +1,189 @@
+/*
+ * Oneiros semantic theme tokens
+ * Map: #09090b→bg-base, #111113→bg-panel, #18181b→bg-elevated,
+ *      #1e1e2e→border-subtle, #27272a→border-default,
+ *      #e4e4e7→text-primary, #d4d4d8→text-body, #a1a1aa→text-secondary,
+ *      #71717a→text-muted, #52525b→text-faint, #3f3f46→text-disabled,
+ *      #7c3aed→accent, #a78bfa→accent-muted
+ */
+
+/* ── Dark (default) ──────────────────────────────────────────────────────── */
+
+html:not([data-theme]),
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-base: #09090b;
+  --bg-panel: #111113;
+  --bg-elevated: #18181b;
+  --bg-hover: #1c1c1f;
+  --bg-input: #18181b;
+
+  --border-subtle: #1e1e2e;
+  --border-default: #27272a;
+  --border-strong: #3f3f46;
+
+  --text-primary: #e4e4e7;
+  --text-body: #d4d4d8;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #52525b;
+  --text-disabled: #3f3f46;
+
+  --accent: #7c3aed;
+  --accent-muted: #a78bfa;
+  --accent-subtle: rgba(124, 58, 237, 0.08);
+  --accent-border: rgba(124, 58, 237, 0.4);
+  --accent-glow: rgba(124, 58, 237, 0.15);
+
+  --success: #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.15);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.15);
+  --error: #ef4444;
+  --error-subtle: rgba(239, 68, 68, 0.15);
+
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-drawer: 4px 0 24px rgba(0, 0, 0, 0.4);
+
+  --flow-edge: #52525b;
+  --flow-edge-selected: #7c3aed;
+  --flow-bg: #09090b;
+  --flow-controls-bg: #18181b;
+  --flow-minimap-mask: rgba(124, 58, 237, 0.15);
+
+  --chart-grid: #27272a;
+  --chart-axis: #52525b;
+  --chart-tooltip-bg: #18181b;
+  --chart-tooltip-border: #27272a;
+
+  --topbar-bg: #111113;
+  --topbar-border: #1e1e2e;
+
+  --wordmark-gradient: linear-gradient(135deg, #f4f4f5 0%, #c4b5fd 42%, #7c3aed 78%, #5b21b6 100%);
+  --hero-glow: radial-gradient(ellipse 55% 45% at 50% 35%, rgba(124, 58, 237, 0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 50% 0%, rgba(6, 182, 212, 0.06) 0%, transparent 60%);
+  --hero-grid-color: rgba(124, 58, 237, 0.07);
+  --hero-grid-opacity: 0.35;
+}
+
+/* ── Light ───────────────────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-base: #f4f4f5;
+  --bg-panel: #ffffff;
+  --bg-elevated: #fafafa;
+  --bg-hover: #f0f0f2;
+  --bg-input: #ffffff;
+
+  --border-subtle: #e4e4e7;
+  --border-default: #d4d4d8;
+  --border-strong: #a1a1aa;
+
+  --text-primary: #18181b;
+  --text-body: #27272a;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --text-faint: #a1a1aa;
+  --text-disabled: #d4d4d8;
+
+  --accent: #7c3aed;
+  --accent-muted: #6d28d9;
+  --accent-subtle: rgba(124, 58, 237, 0.06);
+  --accent-border: rgba(124, 58, 237, 0.35);
+  --accent-glow: rgba(124, 58, 237, 0.1);
+
+  --success: #059669;
+  --success-subtle: rgba(5, 150, 105, 0.1);
+  --warning: #d97706;
+  --warning-subtle: rgba(217, 119, 6, 0.1);
+  --error: #dc2626;
+  --error-subtle: rgba(220, 38, 38, 0.1);
+
+  --overlay: rgba(0, 0, 0, 0.35);
+  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-drawer: 4px 0 24px rgba(0, 0, 0, 0.12);
+
+  --flow-edge: #a1a1aa;
+  --flow-edge-selected: #7c3aed;
+  --flow-bg: #f4f4f5;
+  --flow-controls-bg: #ffffff;
+  --flow-minimap-mask: rgba(124, 58, 237, 0.08);
+
+  --chart-grid: #e4e4e7;
+  --chart-axis: #a1a1aa;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #d4d4d8;
+
+  --topbar-bg: #ffffff;
+  --topbar-border: #e4e4e7;
+
+  --wordmark-gradient: linear-gradient(135deg, #18181b 0%, #6d28d9 42%, #7c3aed 78%, #5b21b6 100%);
+  --hero-glow: radial-gradient(ellipse 55% 45% at 50% 35%, rgba(124, 58, 237, 0.1) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 50% 0%, rgba(6, 182, 212, 0.04) 0%, transparent 60%);
+  --hero-grid-color: rgba(124, 58, 237, 0.06);
+  --hero-grid-opacity: 0.5;
+}
+
+/* ── Midnight (blue-tinted dark) ─────────────────────────────────────────── */
+
+[data-theme="midnight"] {
+  color-scheme: dark;
+
+  --bg-base: #0a0f1a;
+  --bg-panel: #0f1629;
+  --bg-elevated: #151d32;
+  --bg-hover: #1a2340;
+  --bg-input: #151d32;
+
+  --border-subtle: #1a2540;
+  --border-default: #243052;
+  --border-strong: #334466;
+
+  --text-primary: #e2e8f4;
+  --text-body: #c8d4e8;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-faint: #475569;
+  --text-disabled: #334155;
+
+  --accent: #818cf8;
+  --accent-muted: #a5b4fc;
+  --accent-subtle: rgba(129, 140, 248, 0.1);
+  --accent-border: rgba(129, 140, 248, 0.4);
+  --accent-glow: rgba(129, 140, 248, 0.18);
+
+  --success: #34d399;
+  --success-subtle: rgba(52, 211, 153, 0.12);
+  --warning: #fbbf24;
+  --warning-subtle: rgba(251, 191, 36, 0.12);
+  --error: #f87171;
+  --error-subtle: rgba(248, 113, 113, 0.12);
+
+  --overlay: rgba(5, 10, 25, 0.65);
+  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-drawer: 4px 0 24px rgba(0, 0, 0, 0.45);
+
+  --flow-edge: #475569;
+  --flow-edge-selected: #818cf8;
+  --flow-bg: #0a0f1a;
+  --flow-controls-bg: #151d32;
+  --flow-minimap-mask: rgba(129, 140, 248, 0.15);
+
+  --chart-grid: #243052;
+  --chart-axis: #475569;
+  --chart-tooltip-bg: #151d32;
+  --chart-tooltip-border: #243052;
+
+  --topbar-bg: #0f1629;
+  --topbar-border: #1a2540;
+
+  --wordmark-gradient: linear-gradient(135deg, #e2e8f4 0%, #a5b4fc 42%, #818cf8 78%, #4338ca 100%);
+  --hero-glow: radial-gradient(ellipse 55% 45% at 50% 35%, rgba(129, 140, 248, 0.2) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 60%);
+  --hero-grid-color: rgba(129, 140, 248, 0.08);
+  --hero-grid-opacity: 0.35;
+}

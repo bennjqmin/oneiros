@@ -20,7 +20,7 @@ function TransformerEncoderNode({ id, data, selected }: NodeProps<TransformerEnc
     <BaseNode
       nodeId={id}
       label="Transformer Encoder"
-      category="attention"
+      category="transformer"
       selected={selected}
       icon={
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
@@ -44,7 +44,8 @@ registerNode({
   type: 'transformerEncoderNode',
   label: 'Transformer Encoder',
   description: 'Multi-layer Transformer encoder (projects input → d_model)',
-  category: 'attention',
+  category: 'transformer',
+  paletteGroup: 'transformer',
   defaultData: {
     label: 'Transformer Encoder',
     dModel: 256,

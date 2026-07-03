@@ -62,6 +62,7 @@ registerNode({
   label: 'Backbone',
   description: 'Pretrained vision backbone (ResNet, MobileNet, VGG, EfficientNet)',
   category: 'layers',
+  paletteGroup: 'computerVision',
   defaultData: {
     label: 'Backbone',
     model: 'resnet18',

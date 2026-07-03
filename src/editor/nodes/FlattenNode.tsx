@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import type { NodeProps, Node } from '@xyflow/react'
 import BaseNode from './BaseNode'
 import { registerNode } from '../registry/nodeRegistry'
@@ -24,7 +25,7 @@ function FlattenNode({ id, selected }: NodeProps<FlattenNodeType>) {
         </svg>
       }
     >
-      <div style={{ fontSize: 9, color: '#71717a', fontStyle: 'italic', padding: '2px 0' }}>
+      <div style={{ fontSize: 9, color: t.textMuted, fontStyle: 'italic', padding: '2px 0' }}>
         spatial → flat
       </div>
     </BaseNode>
@@ -36,6 +37,7 @@ registerNode({
   label: 'Flatten',
   description: 'Reshapes spatial tensor to 1D vector',
   category: 'layers',
+  paletteGroup: 'basic',
   defaultData: {
     label: 'Flatten',
   },

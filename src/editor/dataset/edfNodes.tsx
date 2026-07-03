@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 
@@ -7,7 +8,7 @@ const C = {
   source:    { border: '#8b5cf6', header: 'rgba(139,92,246,0.12)', text: '#c4b5fd', handle: '#8b5cf6' },
   signal:    { border: '#6366f1', header: 'rgba(99,102,241,0.10)', text: '#a5b4fc', handle: '#6366f1' },
   analysis:  { border: '#06b6d4', header: 'rgba(6,182,212,0.10)',  text: '#67e8f9', handle: '#06b6d4' },
-  output:    { border: '#10b981', header: 'rgba(16,185,129,0.10)', text: '#6ee7b7', handle: '#10b981' },
+  output:    { border: t.success, header: 'rgba(16,185,129,0.10)', text: '#6ee7b7', handle: t.success },
 }
 
 // ── Shared shell ──────────────────────────────────────────────────────────────
@@ -30,9 +31,9 @@ function EDFNode({
   return (
     <div style={{
       width: 200,
-      background: '#18181b',
+      background: t.bgElevated,
       borderRadius: 9,
-      border: `1px solid ${selected ? color.border : '#27272a'}`,
+      border: `1px solid ${selected ? color.border : t.borderDefault}`,
       boxShadow: selected
         ? `0 0 0 1px ${color.border}40, 0 6px 20px rgba(0,0,0,0.4)`
         : '0 3px 12px rgba(0,0,0,0.35)',
@@ -41,9 +42,9 @@ function EDFNode({
     }}>
       {hasTarget && (
         <Handle type="target" position={Position.Left}
-          style={{ width: 9, height: 9, background: '#18181b', border: `2px solid ${color.handle}`, left: -5, borderRadius: '50%' }} />
+          style={{ width: 9, height: 9, background: t.bgElevated, border: `2px solid ${color.handle}`, left: -5, borderRadius: '50%' }} />
       )}
-      <div style={{ background: color.header, borderBottom: '1px solid #27272a', padding: '7px 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ background: color.header, borderBottom: `1px solid ${t.borderDefault}`, padding: '7px 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: color.text }}>{label}</span>
         <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: color.border }} />
       </div>
@@ -59,8 +60,8 @@ function EDFNode({
 function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-      <span style={{ color: '#71717a' }}>{label}</span>
-      <span style={{ color: '#e4e4e7', fontWeight: 500 }}>{value}</span>
+      <span style={{ color: t.textMuted }}>{label}</span>
+      <span style={{ color: t.textPrimary, fontWeight: 500 }}>{value}</span>
     </div>
   )
 }
@@ -184,7 +185,7 @@ type EpochOutputData = Node<{ label: string }, 'edfEpochOutputNode'>
 export function EDFEpochOutputNode({ selected }: NodeProps<EpochOutputData>) {
   return (
     <EDFNode label="Epoch Output" color={C.output} selected={selected} hasSource={false}>
-      <div style={{ fontSize: 10, color: '#71717a', lineHeight: 1.5 }}>
+      <div style={{ fontSize: 10, color: t.textMuted, lineHeight: 1.5 }}>
         Flatten epochs → tabular training data
       </div>
     </EDFNode>
@@ -261,7 +262,7 @@ export const edfNodeDefs: EDFNodeDef[] = [
     type: 'edfEpochOutputNode',
     label: 'Epoch Output',
     description: 'Export epochs to training',
-    color: '#10b981',
+    color: t.success,
     defaultData: { label: 'Epoch Output' },
   },
 ]

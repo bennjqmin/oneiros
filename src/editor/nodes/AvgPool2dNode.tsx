@@ -38,9 +38,10 @@ function AvgPool2dNode({ id, data, selected }: NodeProps<AvgPool2dNodeType>) {
 
 registerNode({
   type: 'avgPool2dNode',
-  label: 'AvgPool2d',
+  label: 'Average Pooling',
   description: '2D average pooling',
   category: 'layers',
+  paletteGroup: 'convolutional',
   defaultData: {
     label: 'AvgPool2d',
     kernelSize: 2,

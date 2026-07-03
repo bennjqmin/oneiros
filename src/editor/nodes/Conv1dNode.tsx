@@ -44,6 +44,7 @@ registerNode({
   label: 'Conv1d',
   description: '1D convolution — treats flat input as (channels, 1) sequence',
   category: 'layers',
+  paletteGroup: 'convolutional',
   defaultData: {
     label: 'Conv1d',
     outChannels: 64,

@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import { Handle, Position } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import type { NodeCategory } from '../../types/node'
@@ -50,6 +51,32 @@ const categoryConfig: Record<
     handleColor: '#f59e0b',
     dot: '#f59e0b',
   },
+  utility: {
+    border: '#64748b',
+    headerBg: 'rgba(100,116,139,0.08)',
+    textColor: '#94a3b8',
+    handleColor: '#64748b',
+    dot: '#64748b',
+  },
+  regularization: {
+    border: '#f97316',
+    headerBg: 'rgba(249,115,22,0.08)',
+    textColor: '#fdba74',
+    handleColor: '#f97316',
+    dot: '#f97316',
+  },
+  transformer: {
+    border: '#06b6d4',
+    headerBg: 'rgba(6,182,212,0.08)',
+    textColor: '#67e8f9',
+    handleColor: '#06b6d4',
+    dot: '#06b6d4',
+  },
+}
+
+interface TargetHandleSpec {
+  id: string
+  top?: string | number
 }
 
 interface BaseNodeProps {
@@ -60,6 +87,7 @@ interface BaseNodeProps {
   children?: ReactNode
   hasSource?: boolean
   hasTarget?: boolean
+  targetHandles?: TargetHandleSpec[]
   icon?: ReactNode
 }
 
@@ -71,6 +99,7 @@ export default function BaseNode({
   children,
   hasSource = true,
   hasTarget = true,
+  targetHandles,
   icon,
 }: BaseNodeProps) {
   const cfg = categoryConfig[category]
@@ -85,26 +114,26 @@ export default function BaseNode({
   const hasWarning = !hasError && issues.some((i) => i.severity === 'warning')
 
   const borderColor = hasError
-    ? '#ef4444'
+    ? t.error
     : hasWarning
-      ? '#f59e0b'
+      ? t.warning
       : selected
         ? cfg.border
-        : '#27272a'
+        : t.borderDefault
 
   const glow = hasError
-    ? '0 0 0 1px #ef444440, 0 8px 24px rgba(0,0,0,0.5)'
+    ? `0 0 0 1px ${t.error}40, ${t.shadowPanel}`
     : hasWarning
-      ? '0 0 0 1px #f59e0b40, 0 8px 24px rgba(0,0,0,0.5)'
+      ? `0 0 0 1px ${t.warning}40, ${t.shadowPanel}`
       : selected
-        ? `0 0 0 1px ${cfg.border}40, 0 8px 24px rgba(0,0,0,0.5)`
-        : '0 4px 16px rgba(0,0,0,0.4)'
+        ? `0 0 0 1px ${cfg.border}40, ${t.shadowPanel}`
+        : t.shadowPanel
 
   return (
     <div
       style={{
         width: 216,
-        background: '#18181b',
+        background: t.bgElevated,
         borderRadius: 10,
         border: `1px solid ${borderColor}`,
         boxShadow: glow,
@@ -112,26 +141,44 @@ export default function BaseNode({
         transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
     >
-      {hasTarget && (
+      {targetHandles && targetHandles.length > 0 ? (
+        targetHandles.map((h) => (
+          <Handle
+            key={h.id}
+            id={h.id}
+            type="target"
+            position={Position.Left}
+            style={{
+              width: 10,
+              height: 10,
+              background: t.bgElevated,
+              border: `2px solid ${cfg.handleColor}`,
+              borderRadius: '50%',
+              left: -5,
+              top: h.top,
+            }}
+          />
+        ))
+      ) : hasTarget ? (
         <Handle
           type="target"
           position={Position.Left}
           style={{
             width: 10,
             height: 10,
-            background: '#18181b',
+            background: t.bgElevated,
             border: `2px solid ${cfg.handleColor}`,
             borderRadius: '50%',
             left: -5,
           }}
         />
-      )}
+      ) : null}
 
       {/* Header */}
       <div
         style={{
           background: cfg.headerBg,
-          borderBottom: '1px solid #27272a',
+          borderBottom: `1px solid ${t.borderDefault}`,
           padding: '8px 12px',
           display: 'flex',
           alignItems: 'center',
@@ -187,9 +234,9 @@ export default function BaseNode({
       {description && (
         <div style={{
           padding: '5px 12px 7px',
-          borderTop: children ? '1px solid #1e1e2e' : undefined,
+          borderTop: children ? `1px solid ${t.borderSubtle}` : undefined,
           fontSize: 10,
-          color: '#3f3f46',
+          color: t.textDisabled,
           lineHeight: 1.4,
           fontStyle: 'italic',
         }}>
@@ -224,8 +271,8 @@ function ValidationBadge({
   hasError: boolean
   messages: string[]
 }) {
-  const color = hasError ? '#ef4444' : '#f59e0b'
-  const bg = hasError ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)'
+  const color = hasError ? t.error : t.warning
+  const bg = hasError ? t.errorSubtle : t.warningSubtle
 
   return (
     <div style={{ position: 'relative' }} className="validation-badge-host">
@@ -255,7 +302,7 @@ function ValidationBadge({
           position: 'absolute',
           right: 20,
           top: -4,
-          background: '#09090b',
+          background: t.bgBase,
           border: `1px solid ${color}40`,
           borderRadius: 6,
           padding: '6px 10px',
@@ -265,7 +312,7 @@ function ValidationBadge({
           pointerEvents: 'none',
           opacity: 0,
           transition: 'opacity 0.1s',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          boxShadow: t.shadowPanel,
         }}
       >
         {messages.map((m, i) => (
@@ -273,7 +320,7 @@ function ValidationBadge({
             key={i}
             style={{
               fontSize: 11,
-              color: hasError ? '#fca5a5' : '#fcd34d',
+              color: hasError ? t.error : t.warning,
               lineHeight: 1.5,
               marginBottom: i < messages.length - 1 ? 4 : 0,
             }}

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./theme/themes.css";
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -16,8 +17,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #09090b;
-  color: #d4d4d8;
+  background: var(--bg-base);
+  color: var(--text-body);
   font-size: 13px;
 }
 
@@ -29,7 +30,7 @@ body {
 /* ── XYFlow canvas overrides ─────────────────────────────── */
 
 .react-flow__renderer {
-  background: #09090b;
+  background: var(--flow-bg);
 }
 
 .react-flow__pane {
@@ -38,18 +39,18 @@ body {
 
 .react-flow__edge-path,
 .react-flow__connection-path {
-  stroke: #52525b;
+  stroke: var(--flow-edge);
   stroke-width: 1.5;
 }
 
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: #7c3aed;
+  stroke: var(--flow-edge-selected);
   stroke-width: 2;
 }
 
 .react-flow__edge-text {
-  fill: #a1a1aa;
+  fill: var(--text-secondary);
   font-size: 11px;
 }
 
@@ -58,18 +59,18 @@ body {
 }
 
 .react-flow__controls {
-  background: #18181b;
-  border: 1px solid #27272a;
+  background: var(--flow-controls-bg);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-panel);
 }
 
 .react-flow__controls-button {
   background: transparent;
   border: none;
-  border-bottom: 1px solid #27272a;
-  color: #a1a1aa;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-secondary);
   width: 28px;
   height: 28px;
   padding: 0;
@@ -79,8 +80,8 @@ body {
 }
 
 .react-flow__controls-button:hover {
-  background: #27272a;
-  color: #f4f4f5;
+  background: var(--border-default);
+  color: var(--text-primary);
 }
 
 .react-flow__controls-button:last-child {
@@ -94,36 +95,33 @@ body {
 }
 
 .react-flow__minimap {
-  background: #18181b;
-  border: 1px solid #27272a;
+  background: var(--flow-controls-bg);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .react-flow__minimap-mask {
-  fill: rgba(124, 58, 237, 0.15);
+  fill: var(--flow-minimap-mask);
 }
 
 .react-flow__background {
-  background: #09090b;
+  background: var(--flow-bg);
 }
 
 .react-flow__node.selected > div {
   outline: none;
 }
 
-/* Prevent XYFlow default node focus ring */
 .react-flow__node:focus {
   outline: none;
 }
 
-/* Training panel live indicator */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.3; }
 }
 
-/* Hide number input spinners for cleaner UI */
 input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -138,7 +136,7 @@ input[type='number'] { -moz-appearance: textfield; }
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: lowercase;
-  background: linear-gradient(135deg, #f4f4f5 0%, #c4b5fd 42%, #7c3aed 78%, #5b21b6 100%);
+  background: var(--wordmark-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -148,19 +146,17 @@ input[type='number'] { -moz-appearance: textfield; }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 55% 45% at 50% 35%, rgba(124, 58, 237, 0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 50% 0%, rgba(6, 182, 212, 0.06) 0%, transparent 60%);
+  background: var(--hero-glow);
 }
 
 .projects-hero-grid {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.35;
+  opacity: var(--hero-grid-opacity);
   background-image:
-    linear-gradient(rgba(124, 58, 237, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 58, 237, 0.07) 1px, transparent 1px);
+    linear-gradient(var(--hero-grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hero-grid-color) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 75%);
 }

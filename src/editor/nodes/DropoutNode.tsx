@@ -14,7 +14,7 @@ function DropoutNode({ id, data, selected }: NodeProps<DropoutNodeType>) {
     <BaseNode
       nodeId={id}
       label="Dropout"
-      category="activation"
+      category="regularization"
       selected={selected}
       icon={
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
@@ -39,7 +39,8 @@ registerNode({
   type: 'dropoutNode',
   label: 'Dropout',
   description: 'Randomly zeroes elements during training',
-  category: 'activation',
+  category: 'regularization',
+  paletteGroup: 'regularization',
   defaultData: {
     label: 'Dropout',
     p: 0.5,

@@ -1,6 +1,6 @@
 import type { NodeProps, Node } from '@xyflow/react'
 import BaseNode, { NodeRow } from './BaseNode'
-import { registerNode } from '../registry/nodeRegistry'
+import { registerNode, registerPaletteShortcut } from '../registry/nodeRegistry'
 
 const ACTIVATION_LABELS: Record<string, string> = {
   relu: 'ReLU',
@@ -24,10 +24,11 @@ interface ActivationData extends Record<string, unknown> {
 type ActivationNodeType = Node<ActivationData, 'activationNode'>
 
 function ActivationNode({ id, data, selected }: NodeProps<ActivationNodeType>) {
+  const displayLabel = ACTIVATION_LABELS[data.fn] ?? data.label ?? 'Activation'
   return (
     <BaseNode
       nodeId={id}
-      label="Activation"
+      label={displayLabel}
       category="activation"
       selected={selected}
       icon={
@@ -46,6 +47,7 @@ registerNode({
   label: 'Activation',
   description: 'Standalone activation function (passthrough shape)',
   category: 'activation',
+  paletteGroup: 'activation',
   defaultData: {
     label: 'Activation',
     fn: 'relu',
@@ -72,5 +74,25 @@ registerNode({
   ],
   component: ActivationNode,
 })
+
+const ACTIVATION_SHORTCUTS: { key: string; fn: string; label: string }[] = [
+  { key: 'activationNode:relu', fn: 'relu', label: 'ReLU' },
+  { key: 'activationNode:gelu', fn: 'gelu', label: 'GELU' },
+  { key: 'activationNode:sigmoid', fn: 'sigmoid', label: 'Sigmoid' },
+  { key: 'activationNode:softmax', fn: 'softmax', label: 'Softmax' },
+  { key: 'activationNode:tanh', fn: 'tanh', label: 'Tanh' },
+  { key: 'activationNode:leaky_relu', fn: 'leaky_relu', label: 'Leaky ReLU' },
+]
+
+for (const s of ACTIVATION_SHORTCUTS) {
+  registerPaletteShortcut({
+    key: s.key,
+    type: 'activationNode',
+    label: s.label,
+    description: `${s.label} activation (passthrough shape)`,
+    paletteGroup: 'activation',
+    paletteDefaults: { fn: s.fn, label: s.label },
+  })
+}
 
 export default ActivationNode

@@ -122,8 +122,67 @@ export function inferShapes(
       const model = (data.model as string | undefined) ?? 'resnet18'
       shapes.set(node.id, { kind: 'flat', features: feats[model] ?? 512 })
 
-    // ── Dropout / BatchNorm / Activation (passthrough) ─────────────────────────
-    } else if (type === 'dropoutNode' || type === 'batchNormNode' || type === 'activationNode') {
+    // ── Dropout / BatchNorm / Activation / GaussianNoise / LayerNorm (passthrough) ──
+    } else if (type === 'dropoutNode' || type === 'batchNormNode' || type === 'activationNode'
+      || type === 'gaussianNoiseNode' || type === 'layerNormNode') {
+      if (firstParentShape) shapes.set(node.id, { ...firstParentShape })
+
+    // ── Reshape ────────────────────────────────────────────────────────────────
+    } else if (type === 'reshapeNode') {
+      const target = (data.targetFeatures as number | undefined) ?? -1
+      if (target === -1 && firstParentShape) {
+        shapes.set(node.id, { ...firstParentShape })
+      } else {
+        shapes.set(node.id, { kind: 'flat', features: target })
+      }
+
+    // ── Embedding ──────────────────────────────────────────────────────────────
+    } else if (type === 'embeddingNode') {
+      const embDim = (data.embeddingDim as number | undefined) ?? 128
+      const seqLen = firstParentShape ? flatFeatures(firstParentShape) : 1
+      shapes.set(node.id, { kind: 'flat', features: seqLen * embDim })
+
+    // ── Positional Encoding ────────────────────────────────────────────────────
+    } else if (type === 'positionalEncodingNode') {
+      const dModel = (data.dModel as number | undefined) ?? 256
+      shapes.set(node.id, { kind: 'flat', features: dModel })
+
+    // ── Feed Forward ───────────────────────────────────────────────────────────
+    } else if (type === 'feedForwardNode') {
+      const dModel = (data.dModel as number | undefined) ?? 256
+      shapes.set(node.id, { kind: 'flat', features: dModel })
+
+    // ── Multi-Head Attention ───────────────────────────────────────────────────
+    } else if (type === 'multiHeadAttentionNode') {
+      const embedDim = (data.embedDim as number | undefined) ?? 256
+      shapes.set(node.id, { kind: 'flat', features: embedDim })
+
+    // ── Concatenate ────────────────────────────────────────────────────────────
+    } else if (type === 'concatenateNode') {
+      const parentShapes = nodeParents.map((pid) => shapes.get(pid)).filter(Boolean) as TensorShape[]
+      if (parentShapes.length === 0) {
+        shapes.set(node.id, { kind: 'flat', features: 0 })
+      } else if (parentShapes.every((s) => s.kind === 'flat')) {
+        shapes.set(node.id, { kind: 'flat', features: parentShapes.reduce((sum, s) => sum + flatFeatures(s), 0) })
+      } else if (parentShapes.every((s) => s.kind === 'spatial')) {
+        const ref = parentShapes[0]
+        const sameSize = parentShapes.every((s) => s.kind === 'spatial' && s.height === ref.height && s.width === ref.width)
+        if (sameSize && ref.kind === 'spatial') {
+          shapes.set(node.id, {
+            kind: 'spatial',
+            channels: parentShapes.reduce((sum, s) => sum + (s.kind === 'spatial' ? s.channels : 0), 0),
+            height: ref.height,
+            width: ref.width,
+          })
+        } else if (firstParentShape) {
+          shapes.set(node.id, { ...firstParentShape })
+        }
+      } else if (firstParentShape) {
+        shapes.set(node.id, { ...firstParentShape })
+      }
+
+    // ── Add / Multiply (same shape as inputs) ──────────────────────────────────
+    } else if (type === 'addNode' || type === 'multiplyNode') {
       if (firstParentShape) shapes.set(node.id, { ...firstParentShape })
 
     // ── RNN / GRU (flat → flat: last hidden state) ─────────────────────────────

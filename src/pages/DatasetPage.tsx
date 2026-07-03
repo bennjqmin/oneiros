@@ -1,3 +1,4 @@
+import { t } from '../theme/tokens'
 import { useEffect, useRef, useState } from 'react'
 import { useDatasetStore } from '../store/useDatasetStore'
 import type { ColumnInfo, EDFDataset } from '../store/useDatasetStore'
@@ -6,12 +7,14 @@ import { useTrainingStore } from '../store/useTrainingStore'
 import DatasetFlow, { PipelinePaletteItem } from '../editor/dataset/DatasetFlow'
 import EDFFlow, { EDFPaletteItem } from '../editor/dataset/EDFFlow'
 import AugFlow, { AugPaletteItem } from '../editor/dataset/AugFlow'
+import MergeCSVView from '../editor/dataset/MergeCSVView'
 import { datasetNodeDefs } from '../editor/dataset/preprocessingNodes'
 import { edfNodeDefs } from '../editor/dataset/edfNodes'
 import { augNodeDefs } from '../editor/dataset/augmentNodes'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { useTabularModelInfo } from '../hooks/useTabularModelInfo'
 import { LoadingLabel } from '../components/panelChrome'
+import { useThemeSync } from '../theme/useThemeSync'
 import type { LoadedDataset } from '../store/useDatasetStore'
 
 const PREVIEW_ROWS = 200
@@ -94,11 +97,40 @@ function ImageIcon() {
   )
 }
 
-type ActiveTab = 'table' | 'pipeline' | 'visualize' | 'edf' | 'cv'
+function MergeIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+      <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+      <polyline points="8 12 12 16 16 12" />
+    </svg>
+  )
+}
 
-export default function DatasetPage({ mobile, active = true }: { mobile?: boolean; active?: boolean }) {
+function DownloadIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+type ActiveTab = 'table' | 'pipeline' | 'visualize' | 'edf' | 'cv' | 'merge'
+
+export default function DatasetPage({ mobile, active = true, onOpenCode }: {
+  mobile?: boolean
+  active?: boolean
+  onOpenCode?: () => void
+}) {
+  useThemeSync()
   const {
-    dataset, loadFromCSV, loadFromJSON, clearDataset, targetColumn, setTargetColumn,
+    dataset, loadFromCSV, loadFromJSON, exportDatasetAsCSV,
+    clearDataset, targetColumn, setTargetColumn,
     edfDataset, loadFromEDF, clearEDF, edfLoading, edfError,
     cvDataset, loadFromImageZip, clearCVDataset, cvLoading, cvError,
   } = useDatasetStore()
@@ -147,14 +179,14 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
   const hasCV      = !!cvDataset
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#09090b' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.bgBase }}>
 
       {/* Toolbar */}
       <div style={{
         height: mobile ? 'auto' : 48,
         minHeight: 48,
-        background: '#111113',
-        borderBottom: '1px solid #1e1e2e',
+        background: t.bgPanel,
+        borderBottom: `1px solid ${t.borderSubtle}`,
         display: 'flex',
         alignItems: 'center',
         padding: mobile ? '8px 12px' : '0 16px',
@@ -164,32 +196,32 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
         flexWrap: mobile ? 'wrap' : 'nowrap',
       }}>
         {!mobile && (
-        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint }}>
           Dataset Studio
         </span>
         )}
 
         {/* Active dataset label */}
-        {hasTabular && activeTab !== 'edf' && activeTab !== 'cv' && (
+        {hasTabular && activeTab !== 'edf' && activeTab !== 'cv' && activeTab !== 'merge' && (
           <>
-            <span style={{ fontSize: 11, color: '#3f3f46', margin: '0 2px' }}>›</span>
-            <span style={{ fontSize: 12, color: '#a1a1aa', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{dataset.name}</span>
+            <span style={{ fontSize: 11, color: t.textDisabled, margin: '0 2px' }}>›</span>
+            <span style={{ fontSize: 12, color: t.textSecondary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{dataset.name}</span>
           </>
         )}
         {hasEDF && activeTab === 'edf' && (
           <>
-            <span style={{ fontSize: 11, color: '#3f3f46', margin: '0 2px' }}>›</span>
+            <span style={{ fontSize: 11, color: t.textDisabled, margin: '0 2px' }}>›</span>
             <span style={{ fontSize: 12, color: '#c4b5fd', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{edfDataset.name}</span>
-            <span style={{ fontSize: 10, color: '#52525b', background: '#18181b', border: '1px solid #27272a', borderRadius: 4, padding: '1px 7px', flexShrink: 0 }}>
+            <span style={{ fontSize: 10, color: t.textFaint, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 4, padding: '1px 7px', flexShrink: 0 }}>
               {edfDataset.channels.length} ch · {edfDataset.sfreq} Hz · {edfDataset.duration.toFixed(1)} s
             </span>
           </>
         )}
         {hasCV && activeTab === 'cv' && (
           <>
-            <span style={{ fontSize: 11, color: '#3f3f46', margin: '0 2px' }}>›</span>
+            <span style={{ fontSize: 11, color: t.textDisabled, margin: '0 2px' }}>›</span>
             <span style={{ fontSize: 12, color: '#67e8f9', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{cvDataset!.name}</span>
-            <span style={{ fontSize: 10, color: '#52525b', background: '#18181b', border: '1px solid #27272a', borderRadius: 4, padding: '1px 7px', flexShrink: 0 }}>
+            <span style={{ fontSize: 10, color: t.textFaint, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 4, padding: '1px 7px', flexShrink: 0 }}>
               {cvDataset!.classNames.length} classes · {cvDataset!.totalImages.toLocaleString()} images · {cvDataset!.inputShape[0]}×{cvDataset!.inputShape[1]}×{cvDataset!.inputShape[2]}
             </span>
           </>
@@ -198,55 +230,65 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
         <div style={{ flex: 1 }} />
 
         {/* Target column selector (tabular only) */}
-        {hasTabular && activeTab !== 'edf' && activeTab !== 'cv' && (
+        {hasTabular && activeTab !== 'edf' && activeTab !== 'cv' && activeTab !== 'merge' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#52525b', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textFaint, whiteSpace: 'nowrap' }}>
               Target
             </span>
             <select
               value={targetColumn ?? ''}
               onChange={(e) => setTargetColumn(e.target.value || null)}
               style={{
-                background: '#18181b', border: '1px solid #27272a',
-                borderRadius: 5, color: targetColumn ? '#a78bfa' : '#52525b',
+                background: t.bgElevated, border: `1px solid ${t.borderDefault}`,
+                borderRadius: 5, color: targetColumn ? t.accentMuted : t.textFaint,
                 fontSize: 11, padding: '3px 7px', outline: 'none', cursor: 'pointer',
                 maxWidth: 140,
               }}
             >
-              <option value="" style={{ background: '#18181b' }}>— none —</option>
+              <option value="" style={{ background: t.bgElevated }}>— none —</option>
               {dataset!.columns.map((col) => (
-                <option key={col.name} value={col.name} style={{ background: '#18181b' }}>{col.name}</option>
+                <option key={col.name} value={col.name} style={{ background: t.bgElevated }}>{col.name}</option>
               ))}
             </select>
           </div>
         )}
 
         {/* Tab toggle */}
-        {(hasTabular || hasEDF || hasCV) && (
-          <div style={{ display: 'flex', gap: 2, background: '#18181b', border: '1px solid #27272a', borderRadius: 6, padding: 2, flexShrink: 0 }}>
-            {hasTabular && (
-              <>
-                <TabBtn active={activeTab === 'table'}     onClick={() => setActiveTab('table')}     icon={<TableIcon />} label="Table" />
-                <TabBtn active={activeTab === 'pipeline'}  onClick={() => setActiveTab('pipeline')}  icon={<FlowIcon />}  label="Pipeline" />
-                <TabBtn active={activeTab === 'visualize'} onClick={() => setActiveTab('visualize')} icon={<ChartIcon />} label="Visualize" />
-              </>
-            )}
-            {hasEDF && (
-              <TabBtn active={activeTab === 'edf'} onClick={() => setActiveTab('edf')} icon={<BrainIcon />} label="EDF" accent />
-            )}
-            {hasCV && (
-              <TabBtn active={activeTab === 'cv'} onClick={() => setActiveTab('cv')} icon={<ImageIcon />} label="Images" cv />
-            )}
-          </div>
+        <div style={{ display: 'flex', gap: 2, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 6, padding: 2, flexShrink: 0 }}>
+          <TabBtn active={activeTab === 'merge'} onClick={() => setActiveTab('merge')} icon={<MergeIcon />} label="Merge CSV" merge />
+          {hasTabular && (
+            <>
+              <TabBtn active={activeTab === 'table'}     onClick={() => setActiveTab('table')}     icon={<TableIcon />} label="Table" />
+              <TabBtn active={activeTab === 'pipeline'}  onClick={() => setActiveTab('pipeline')}  icon={<FlowIcon />}  label="Pipeline" />
+              <TabBtn active={activeTab === 'visualize'} onClick={() => setActiveTab('visualize')} icon={<ChartIcon />} label="Visualize" />
+            </>
+          )}
+          {hasEDF && (
+            <TabBtn active={activeTab === 'edf'} onClick={() => setActiveTab('edf')} icon={<BrainIcon />} label="EDF" accent />
+          )}
+          {hasCV && (
+            <TabBtn active={activeTab === 'cv'} onClick={() => setActiveTab('cv')} icon={<ImageIcon />} label="Images" cv />
+          )}
+        </div>
+
+        {hasTabular && activeTab !== 'edf' && activeTab !== 'cv' && activeTab !== 'merge' && (
+          <button
+            onClick={() => exportDatasetAsCSV()}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, border: `1px solid ${t.borderDefault}`, background: 'transparent', color: t.textMuted, fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = t.textPrimary; e.currentTarget.style.borderColor = t.borderStrong }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.borderDefault }}
+          >
+            <DownloadIcon /> Export CSV
+          </button>
         )}
 
         {/* Clear buttons */}
-        {hasTabular && activeTab !== 'edf' && activeTab !== 'cv' && (
+        {hasTabular && activeTab !== 'edf' && activeTab !== 'cv' && activeTab !== 'merge' && (
           <button
             onClick={() => { clearDataset(); if (!hasEDF) setActiveTab('table') }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, border: '1px solid #27272a', background: 'transparent', color: '#71717a', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, border: `1px solid ${t.borderDefault}`, background: 'transparent', color: t.textMuted, fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = '#7f1d1d' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#71717a'; e.currentTarget.style.borderColor = '#27272a' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.borderDefault }}
           >
             <TrashIcon /> Clear
           </button>
@@ -254,9 +296,9 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
         {hasEDF && activeTab === 'edf' && (
           <button
             onClick={() => { clearEDF(); if (hasTabular) setActiveTab('table') }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, border: '1px solid #27272a', background: 'transparent', color: '#71717a', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, border: `1px solid ${t.borderDefault}`, background: 'transparent', color: t.textMuted, fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = '#7f1d1d' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#71717a'; e.currentTarget.style.borderColor = '#27272a' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.borderDefault }}
           >
             <TrashIcon /> Clear EDF
           </button>
@@ -264,9 +306,9 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
         {hasCV && activeTab === 'cv' && (
           <button
             onClick={() => { clearCVDataset(); if (hasTabular) setActiveTab('table') }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, border: '1px solid #27272a', background: 'transparent', color: '#71717a', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, border: `1px solid ${t.borderDefault}`, background: 'transparent', color: t.textMuted, fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = '#7f1d1d' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#71717a'; e.currentTarget.style.borderColor = '#27272a' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.borderDefault }}
           >
             <TrashIcon /> Clear Images
           </button>
@@ -315,12 +357,15 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
       )}
 
       {/* Body */}
-      {!hasTabular && !hasEDF && !hasCV ? (
+      {activeTab === 'merge' ? (
+        <MergeCSVView onMerged={() => setActiveTab('table')} />
+      ) : !hasTabular && !hasEDF && !hasCV ? (
         <EmptyState
           onImportCSV={() => csvInputRef.current?.click()}
           onImportJSON={() => jsonInputRef.current?.click()}
           onImportEDF={() => edfInputRef.current?.click()}
           onImportImages={() => cvInputRef.current?.click()}
+          onMergeCSV={() => setActiveTab('merge')}
         />
       ) : activeTab === 'edf' && hasEDF ? (
         <EDFView edf={edfDataset!} active={active} />
@@ -331,7 +376,7 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
       ) : activeTab === 'visualize' && hasTabular ? (
         <VisualizeView dataset={dataset!} />
       ) : activeTab === 'pipeline' && hasTabular ? (
-        <PipelineView mobile={mobile} active={active} />
+        <PipelineView mobile={mobile} active={active} onOpenCode={onOpenCode} />
       ) : hasTabular ? (
         <TableView dataset={dataset!} />
       ) : null}
@@ -341,11 +386,12 @@ export default function DatasetPage({ mobile, active = true }: { mobile?: boolea
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyState({ onImportCSV, onImportJSON, onImportEDF, onImportImages }: {
+function EmptyState({ onImportCSV, onImportJSON, onImportEDF, onImportImages, onMergeCSV }: {
   onImportCSV: () => void
   onImportJSON: () => void
   onImportEDF: () => void
   onImportImages: () => void
+  onMergeCSV: () => void
 }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
@@ -355,25 +401,27 @@ function EmptyState({ onImportCSV, onImportJSON, onImportEDF, onImportImages }: 
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
       <div style={{ textAlign: 'center' }}>
-        <p style={{ fontSize: 14, color: '#52525b', margin: '0 0 6px' }}>No dataset loaded</p>
-        <p style={{ fontSize: 12, color: '#3f3f46', margin: 0 }}>Import tabular data, a biosignal recording, or an image dataset</p>
+        <p style={{ fontSize: 14, color: t.textFaint, margin: '0 0 6px' }}>No dataset loaded</p>
+        <p style={{ fontSize: 12, color: t.textDisabled, margin: 0 }}>Import tabular data, a biosignal recording, or an image dataset</p>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
         <UploadButton label="Import CSV" onClick={onImportCSV} />
         <UploadButton label="Import JSON" onClick={onImportJSON} accent />
+        <UploadButton label="Merge CSVs" onClick={onMergeCSV} merge />
         <UploadButton label="Import EDF" onClick={onImportEDF} edf />
         <UploadButton label="Import Images" onClick={onImportImages} cv />
       </div>
       <div style={{ display: 'flex', gap: 24, marginTop: 8 }}>
         {[
           { icon: '⊞', title: 'CSV / JSON', desc: 'Tabular data for classification\nor regression with NN / XGBoost' },
+          { icon: '⊕', title: 'Merge CSV', desc: 'Combine multiple CSVs\nwith identical columns' },
           { icon: '〜', title: 'EDF (MNE)', desc: 'EEG / ECG / EMG recordings\nFiltered, epoched, then trained' },
           { icon: '⊡', title: 'Images (ZIP)', desc: 'Class folders → image classifier\nWith visual augmentation pipeline' },
         ].map(({ icon, title, desc }) => (
           <div key={title} style={{ textAlign: 'center', maxWidth: 150 }}>
             <div style={{ fontSize: 22, marginBottom: 6, opacity: 0.3 }}>{icon}</div>
-            <div style={{ fontSize: 12, color: '#52525b', fontWeight: 600, marginBottom: 3 }}>{title}</div>
-            <div style={{ fontSize: 11, color: '#3f3f46', whiteSpace: 'pre-line', lineHeight: 1.5 }}>{desc}</div>
+            <div style={{ fontSize: 12, color: t.textFaint, fontWeight: 600, marginBottom: 3 }}>{title}</div>
+            <div style={{ fontSize: 11, color: t.textDisabled, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{desc}</div>
           </div>
         ))}
       </div>
@@ -397,8 +445,8 @@ function TabularModelInfoBar({
   return (
     <div style={{
       padding: '7px 16px',
-      background: '#111113',
-      borderBottom: '1px solid #1e1e2e',
+      background: t.bgPanel,
+      borderBottom: `1px solid ${t.borderSubtle}`,
       display: 'flex',
       alignItems: 'center',
       gap: 8,
@@ -407,7 +455,7 @@ function TabularModelInfoBar({
       opacity: loading ? 0.75 : 1,
       transition: 'opacity 0.15s ease',
     }}>
-      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b', marginRight: 2 }}>
+      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint, marginRight: 2 }}>
         For model
       </span>
 
@@ -465,7 +513,7 @@ function TabularModelInfoBar({
       )}
 
       {!info.targetColumn && (
-        <span style={{ fontSize: 10, color: '#71717a', marginLeft: 'auto' }}>
+        <span style={{ fontSize: 10, color: t.textMuted, marginLeft: 'auto' }}>
           Pick a target column to see class count and Output node size
         </span>
       )}
@@ -491,9 +539,9 @@ function InfoChip({
   warn?: boolean
   hint?: string
 }) {
-  const border = warn ? '#f59e0b40' : accent ? '#7c3aed40' : '#27272a'
-  const bg = warn ? 'rgba(245,158,11,0.08)' : accent ? 'rgba(124,58,237,0.08)' : '#18181b'
-  const color = warn ? '#fcd34d' : accent ? '#c4b5fd' : '#a1a1aa'
+  const border = warn ? '#f59e0b40' : accent ? '#7c3aed40' : t.borderDefault
+  const bg = warn ? 'rgba(245,158,11,0.08)' : accent ? t.accentSubtle : t.bgElevated
+  const color = warn ? '#fcd34d' : accent ? '#c4b5fd' : t.textSecondary
   return (
     <span
       title={hint}
@@ -510,7 +558,7 @@ function InfoChip({
         textOverflow: 'ellipsis',
       }}
     >
-      <span style={{ color: '#52525b' }}>{label}: </span>
+      <span style={{ color: t.textFaint }}>{label}: </span>
       {value}
     </span>
   )
@@ -527,11 +575,11 @@ function TableView({ dataset }: { dataset: NonNullable<ReturnType<typeof useData
 
       {/* Column stats sidebar */}
       <div style={{
-        width: 220, background: '#111113',
-        borderRight: '1px solid #1e1e2e',
+        width: 220, background: t.bgPanel,
+        borderRight: `1px solid ${t.borderSubtle}`,
         overflowY: 'auto', flexShrink: 0,
       }}>
-        <div style={{ padding: '10px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b' }}>
+        <div style={{ padding: '10px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint }}>
           Columns
         </div>
         {cols.map((col) => <ColumnCard key={col.name} col={col} />)}
@@ -541,7 +589,7 @@ function TableView({ dataset }: { dataset: NonNullable<ReturnType<typeof useData
       <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
         <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
           <thead>
-            <tr style={{ background: '#111113', position: 'sticky', top: 0, zIndex: 1 }}>
+            <tr style={{ background: t.bgPanel, position: 'sticky', top: 0, zIndex: 1 }}>
               <th style={thStyle}>#</th>
               {cols.map((col) => (
                 <th key={col.name} style={thStyle}>
@@ -561,7 +609,7 @@ function TableView({ dataset }: { dataset: NonNullable<ReturnType<typeof useData
                   const val = row[col.name]
                   const isNull = val === null || val === undefined || val === ''
                   return (
-                    <td key={col.name} style={{ ...tdStyle, color: isNull ? '#3f3f46' : col.type === 'number' ? '#a5b4fc' : '#d4d4d8' }}>
+                    <td key={col.name} style={{ ...tdStyle, color: isNull ? t.textDisabled : col.type === 'number' ? '#a5b4fc' : t.textBody }}>
                       {isNull ? 'null' : String(val)}
                     </td>
                   )
@@ -635,19 +683,19 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
     }
   }
 
-  const COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#a855f7','#ec4899','#14b8a6','#f97316','#84cc16']
+  const COLORS = ['#6366f1','#0ea5e9',t.success,t.warning,t.error,'#a855f7','#ec4899','#14b8a6','#f97316','#84cc16']
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Sub-tab bar */}
-      <div style={{ height: 36, background: '#111113', borderBottom: '1px solid #1e1e2e', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 4, flexShrink: 0 }}>
-        {(['info', 'pipeline', 'visualize'] as EDFSubTab[]).map((t) => (
-          <button key={t} onClick={() => setSubTab(t)} style={{
+      <div style={{ height: 36, background: t.bgPanel, borderBottom: `1px solid ${t.borderSubtle}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 4, flexShrink: 0 }}>
+        {(['info', 'pipeline', 'visualize'] as EDFSubTab[]).map((tab) => (
+          <button key={tab} onClick={() => setSubTab(tab)} style={{
             padding: '3px 10px', borderRadius: 5, fontSize: 11, border: 'none', cursor: 'pointer',
-            background: subTab === t ? 'rgba(139,92,246,0.18)' : 'transparent',
-            color: subTab === t ? '#c4b5fd' : '#71717a', fontWeight: subTab === t ? 600 : 400,
+            background: subTab === tab ? 'rgba(139,92,246,0.18)' : 'transparent',
+            color: subTab === tab ? '#c4b5fd' : t.textMuted, fontWeight: subTab === tab ? 600 : 400,
           }}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -656,7 +704,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
       {subTab === 'info' && (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Left: stats */}
-          <div style={{ width: 240, background: '#111113', borderRight: '1px solid #1e1e2e', overflowY: 'auto', flexShrink: 0, padding: '12px 0' }}>
+          <div style={{ width: 240, background: t.bgPanel, borderRight: `1px solid ${t.borderSubtle}`, overflowY: 'auto', flexShrink: 0, padding: '12px 0' }}>
             <SectionLabel>Recording Info</SectionLabel>
             {[
               { k: 'Channels', v: edf.channels.length },
@@ -665,8 +713,8 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
               { k: 'Total samples', v: edf.nTimes.toLocaleString() },
             ].map(({ k, v }) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 14px', fontSize: 11 }}>
-                <span style={{ color: '#71717a' }}>{k}</span>
-                <span style={{ color: '#d4d4d8', fontWeight: 500 }}>{v}</span>
+                <span style={{ color: t.textMuted }}>{k}</span>
+                <span style={{ color: t.textBody, fontWeight: 500 }}>{v}</span>
               </div>
             ))}
             {edf.events.length > 0 && (
@@ -674,7 +722,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
                 <SectionLabel style={{ marginTop: 10 }}>Events</SectionLabel>
                 {edf.events.map((ev) => (
                   <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 14px', fontSize: 11 }}>
-                    <span style={{ color: '#71717a' }}>{ev.label}</span>
+                    <span style={{ color: t.textMuted }}>{ev.label}</span>
                     <span style={{ color: '#a5b4fc', fontWeight: 500 }}>{ev.count}×</span>
                   </div>
                 ))}
@@ -686,7 +734,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
             <SectionLabel>Channels ({edf.channels.length})</SectionLabel>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
               {edf.channels.map((ch, i) => (
-                <span key={ch} style={{ fontSize: 11, padding: '2px 8px', background: '#18181b', border: `1px solid ${COLORS[i % COLORS.length]}30`, borderRadius: 4, color: COLORS[i % COLORS.length] }}>
+                <span key={ch} style={{ fontSize: 11, padding: '2px 8px', background: t.bgElevated, border: `1px solid ${COLORS[i % COLORS.length]}30`, borderRadius: 4, color: COLORS[i % COLORS.length] }}>
                   {ch}
                 </span>
               ))}
@@ -704,10 +752,10 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
       {subTab === 'pipeline' && (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Palette */}
-          <div style={{ width: 190, background: '#111113', borderRight: '1px solid #1e1e2e', padding: '10px 0', flexShrink: 0, overflowY: 'auto' }}>
-            <div style={{ padding: '2px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b' }}>EDF Transforms</div>
+          <div style={{ width: 190, background: t.bgPanel, borderRight: `1px solid ${t.borderSubtle}`, padding: '10px 0', flexShrink: 0, overflowY: 'auto' }}>
+            <div style={{ padding: '2px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint }}>EDF Transforms</div>
             {edfNodeDefs.map((def) => <EDFPaletteItem key={def.type} def={def} />)}
-            <div style={{ padding: '10px 12px 4px', marginTop: 8, borderTop: '1px solid #1e1e2e', fontSize: 10, color: '#3f3f46', lineHeight: 1.5 }}>
+            <div style={{ padding: '10px 12px 4px', marginTop: 8, borderTop: `1px solid ${t.borderSubtle}`, fontSize: 10, color: t.textDisabled, lineHeight: 1.5 }}>
               Drag transforms onto the canvas. Ends with an Epoch Output node.
             </div>
           </div>
@@ -717,7 +765,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
               {active && <EDFFlow />}
             </div>
             {/* Export bar */}
-            <div style={{ height: 46, background: '#111113', borderTop: '1px solid #1e1e2e', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, flexShrink: 0 }}>
+            <div style={{ height: 46, background: t.bgPanel, borderTop: `1px solid ${t.borderSubtle}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, flexShrink: 0 }}>
               {edfProcessResult ? (
                 <span style={{ fontSize: 11, color: '#6ee7b7' }}>
                   ✓ Exported {edfProcessResult.trainSamples + edfProcessResult.valSamples} epochs · {edfProcessResult.featureCount} features · {edfProcessResult.classCount} classes
@@ -725,7 +773,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
               ) : edfProcessError ? (
                 <span style={{ fontSize: 11, color: '#fca5a5' }}>Error: {edfProcessError}</span>
               ) : (
-                <span style={{ fontSize: 11, color: '#52525b' }}>
+                <span style={{ fontSize: 11, color: t.textFaint }}>
                   Build your pipeline then export epochs to the Model for training.
                 </span>
               )}
@@ -737,7 +785,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
                   padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
                   border: '1px solid #8b5cf6',
                   background: edfProcessing ? '#1a1a2e' : 'rgba(139,92,246,0.15)',
-                  color: edfProcessing ? '#52525b' : '#c4b5fd',
+                  color: edfProcessing ? t.textFaint : '#c4b5fd',
                   cursor: edfProcessing || edfPipelineNodes.length < 2 ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -751,19 +799,19 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
       {subTab === 'visualize' && (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Controls */}
-          <div style={{ width: 240, background: '#111113', borderRight: '1px solid #1e1e2e', overflowY: 'auto', flexShrink: 0, padding: '12px 0', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: 240, background: t.bgPanel, borderRight: `1px solid ${t.borderSubtle}`, overflowY: 'auto', flexShrink: 0, padding: '12px 0', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <VizLabel>Plot Type</VizLabel>
               <div style={{ display: 'flex', gap: 6 }}>
-                {(['waveform', 'psd'] as const).map((t) => (
-                  <button key={t} onClick={() => setVizType(t)} style={{
+                {(['waveform', 'psd'] as const).map((plotType) => (
+                  <button key={plotType} onClick={() => setVizType(plotType)} style={{
                     flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                    border: vizType === t ? '1px solid #8b5cf6' : '1px solid #27272a',
-                    background: vizType === t ? 'rgba(139,92,246,0.15)' : 'transparent',
-                    color: vizType === t ? '#c4b5fd' : '#71717a',
-                    fontWeight: vizType === t ? 600 : 400,
+                    border: vizType === plotType ? '1px solid #8b5cf6' : `1px solid ${t.borderDefault}`,
+                    background: vizType === plotType ? 'rgba(139,92,246,0.15)' : 'transparent',
+                    color: vizType === plotType ? '#c4b5fd' : t.textMuted,
+                    fontWeight: vizType === plotType ? 600 : 400,
                   }}>
-                    {t === 'waveform' ? '〜 Waveform' : '⊞ PSD'}
+                    {plotType === 'waveform' ? '〜 Waveform' : '⊞ PSD'}
                   </button>
                 ))}
               </div>
@@ -775,9 +823,9 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
                   return (
                     <button key={ch} onClick={() => setSelChannels(on ? selChannels.filter(c => c !== ch) : [...selChannels, ch].slice(0, 16))}
                       style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer',
-                        border: on ? '1px solid #8b5cf6' : '1px solid #27272a',
+                        border: on ? '1px solid #8b5cf6' : `1px solid ${t.borderDefault}`,
                         background: on ? 'rgba(139,92,246,0.15)' : 'transparent',
-                        color: on ? '#c4b5fd' : '#52525b' }}>
+                        color: on ? '#c4b5fd' : t.textFaint }}>
                       {ch}
                     </button>
                   )
@@ -789,7 +837,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
                   <VizLabel>Duration (s)</VizLabel>
                   <input type="range" min={1} max={Math.min(30, edf.duration)} value={duration} onChange={(e) => setDuration(+e.target.value)}
                     style={{ accentColor: '#8b5cf6', width: '100%' }} />
-                  <span style={{ fontSize: 10, color: '#52525b' }}>{duration} s</span>
+                  <span style={{ fontSize: 10, color: t.textFaint }}>{duration} s</span>
                 </>
               )}
               {vizType === 'psd' && (
@@ -797,10 +845,10 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
                   <VizLabel>Freq Range (Hz)</VizLabel>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <input type="number" value={fmin} onChange={(e) => setFmin(+e.target.value)} min={0} max={edf.sfreq / 2 - 1}
-                      style={{ flex: 1, background: '#18181b', border: '1px solid #27272a', borderRadius: 4, color: '#e4e4e7', fontSize: 11, padding: '3px 6px', outline: 'none' }} />
-                    <span style={{ fontSize: 11, color: '#52525b', alignSelf: 'center' }}>–</span>
+                      style={{ flex: 1, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 4, color: t.textPrimary, fontSize: 11, padding: '3px 6px', outline: 'none' }} />
+                    <span style={{ fontSize: 11, color: t.textFaint, alignSelf: 'center' }}>–</span>
                     <input type="number" value={fmax} onChange={(e) => setFmax(+e.target.value)} min={1} max={edf.sfreq / 2}
-                      style={{ flex: 1, background: '#18181b', border: '1px solid #27272a', borderRadius: 4, color: '#e4e4e7', fontSize: 11, padding: '3px 6px', outline: 'none' }} />
+                      style={{ flex: 1, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 4, color: t.textPrimary, fontSize: 11, padding: '3px 6px', outline: 'none' }} />
                   </div>
                 </>
               )}
@@ -811,7 +859,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
               <button onClick={handlePlot} disabled={plotLoading || selChannels.length === 0}
                 style={{ width: '100%', padding: '8px 0', borderRadius: 7, border: '1px solid #8b5cf6',
                   background: plotLoading ? '#1a1a2e' : 'rgba(139,92,246,0.15)',
-                  color: plotLoading ? '#52525b' : '#c4b5fd',
+                  color: plotLoading ? t.textFaint : '#c4b5fd',
                   fontSize: 13, fontWeight: 600, cursor: plotLoading ? 'not-allowed' : 'pointer' }}>
                 {plotLoading ? 'Generating…' : '⟡ Plot'}
               </button>
@@ -819,23 +867,23 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
           </div>
 
           {/* Chart area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#09090b' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.bgBase }}>
             <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24 }}>
               {plotLoading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 80 }}>
-                  <Spinner color="#8b5cf6" /><span style={{ fontSize: 12, color: '#52525b' }}>Generating plot…</span>
+                  <Spinner color="#8b5cf6" /><span style={{ fontSize: 12, color: t.textFaint }}>Generating plot…</span>
                 </div>
               ) : plotError ? (
                 <div style={{ maxWidth: 420, padding: '14px 18px', background: 'rgba(239,68,68,0.08)', border: '1px solid #ef444430', borderRadius: 8, fontSize: 13, color: '#fca5a5', lineHeight: 1.5 }}>
                   <strong style={{ display: 'block', marginBottom: 4 }}>Plot error</strong>{plotError}
                 </div>
               ) : plotImg ? (
-                <img src={plotImg} alt="EDF plot" style={{ maxWidth: '100%', borderRadius: 10, border: '1px solid #1e1e2e', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }} />
+                <img src={plotImg} alt="EDF plot" style={{ maxWidth: '100%', borderRadius: 10, border: `1px solid ${t.borderSubtle}`, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }} />
               ) : (
                 <div style={{ textAlign: 'center', marginTop: 80 }}>
                   <div style={{ fontSize: 40, marginBottom: 14, opacity: 0.2 }}>〜</div>
-                  <p style={{ fontSize: 13, color: '#52525b', margin: '0 0 6px' }}>Select channels and click <strong style={{ color: '#71717a' }}>Plot</strong></p>
-                  <p style={{ fontSize: 11, color: '#3f3f46' }}>{edf.channels.length} channels · {edf.sfreq} Hz · {edf.duration.toFixed(1)} s</p>
+                  <p style={{ fontSize: 13, color: t.textFaint, margin: '0 0 6px' }}>Select channels and click <strong style={{ color: t.textMuted }}>Plot</strong></p>
+                  <p style={{ fontSize: 11, color: t.textDisabled }}>{edf.channels.length} channels · {edf.sfreq} Hz · {edf.duration.toFixed(1)} s</p>
                 </div>
               )}
             </div>
@@ -850,7 +898,7 @@ function EDFView({ edf, active = true }: { edf: EDFDataset; active?: boolean }) 
 
 type CVSubTab = 'info' | 'augmentation' | 'export'
 
-const CV_COLORS = ['#0ea5e9','#06b6d4','#10b981','#f59e0b','#a855f7','#ec4899','#f97316','#84cc16','#6366f1','#ef4444']
+const CV_COLORS = ['#0ea5e9','#06b6d4',t.success,t.warning,'#a855f7','#ec4899','#f97316','#84cc16','#6366f1',t.error]
 
 function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
   const [subTab, setSubTab] = useState<CVSubTab>('info')
@@ -915,14 +963,14 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Sub-tab bar */}
-      <div style={{ height: 36, background: '#111113', borderBottom: '1px solid #1e1e2e', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 4, flexShrink: 0 }}>
-        {(['info', 'augmentation', 'export'] as CVSubTab[]).map((t) => (
-          <button key={t} onClick={() => setSubTab(t)} style={{
+      <div style={{ height: 36, background: t.bgPanel, borderBottom: `1px solid ${t.borderSubtle}`, display: 'flex', alignItems: 'center', padding: '0 14px', gap: 4, flexShrink: 0 }}>
+        {(['info', 'augmentation', 'export'] as CVSubTab[]).map((tab) => (
+          <button key={tab} onClick={() => setSubTab(tab)} style={{
             padding: '3px 10px', borderRadius: 5, fontSize: 11, border: 'none', cursor: 'pointer',
-            background: subTab === t ? 'rgba(6,182,212,0.18)' : 'transparent',
-            color: subTab === t ? '#67e8f9' : '#71717a', fontWeight: subTab === t ? 600 : 400,
+            background: subTab === tab ? 'rgba(6,182,212,0.18)' : 'transparent',
+            color: subTab === tab ? '#67e8f9' : t.textMuted, fontWeight: subTab === tab ? 600 : 400,
           }}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -942,7 +990,7 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
       {subTab === 'info' && (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Left: stats */}
-          <div style={{ width: 240, background: '#111113', borderRight: '1px solid #1e1e2e', overflowY: 'auto', flexShrink: 0, padding: '12px 0' }}>
+          <div style={{ width: 240, background: t.bgPanel, borderRight: `1px solid ${t.borderSubtle}`, overflowY: 'auto', flexShrink: 0, padding: '12px 0' }}>
             <SectionLabel>Dataset Info</SectionLabel>
             {[
               { k: 'Name',        v: cv.name },
@@ -951,15 +999,15 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
               { k: 'Input shape', v: `${cv.inputShape[0]}×${cv.inputShape[1]}×${cv.inputShape[2]}` },
             ].map(({ k, v }) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 14px', fontSize: 11 }}>
-                <span style={{ color: '#71717a' }}>{k}</span>
-                <span style={{ color: '#d4d4d8', fontWeight: 500 }}>{v}</span>
+                <span style={{ color: t.textMuted }}>{k}</span>
+                <span style={{ color: t.textBody, fontWeight: 500 }}>{v}</span>
               </div>
             ))}
             <SectionLabel style={{ marginTop: 10 }}>Class Distribution</SectionLabel>
             {cv.classNames.map((cls, i) => (
               <div key={cls} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 14px', fontSize: 11 }}>
                 <span style={{ color: CV_COLORS[i % CV_COLORS.length] }}>{cls}</span>
-                <span style={{ color: '#d4d4d8' }}>{(cv.classCounts[cls] ?? 0).toLocaleString()}</span>
+                <span style={{ color: t.textBody }}>{(cv.classCounts[cls] ?? 0).toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -970,12 +1018,12 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
             <div style={{ height: 220, marginBottom: 24 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 28, left: 8 }}>
-                  <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={{ stroke: '#27272a' }} tickLine={false} />
-                  <YAxis tick={{ fill: '#52525b', fontSize: 10 }} axisLine={{ stroke: '#27272a' }} tickLine={false} />
+                  <XAxis dataKey="name" tick={{ fill: t.textMuted, fontSize: 10 }} axisLine={{ stroke: t.borderDefault }} tickLine={false} />
+                  <YAxis tick={{ fill: t.textFaint, fontSize: 10 }} axisLine={{ stroke: t.borderDefault }} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 6, fontSize: 11 }}
-                    labelStyle={{ color: '#e4e4e7' }}
-                    itemStyle={{ color: '#a1a1aa' }}
+                    contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 6, fontSize: 11 }}
+                    labelStyle={{ color: t.textPrimary }}
+                    itemStyle={{ color: t.textSecondary }}
                   />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                     {chartData.map((entry, index) => (
@@ -993,7 +1041,7 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
               return (
                 <div key={cls} style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, color: CV_COLORS[ci % CV_COLORS.length], fontWeight: 600, marginBottom: 8 }}>
-                    {cls} <span style={{ color: '#52525b', fontWeight: 400 }}>({cv.classCounts[cls]} images)</span>
+                    {cls} <span style={{ color: t.textFaint, fontWeight: 400 }}>({cv.classCounts[cls]} images)</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     {thumbs.map((b64, ti) => (
@@ -1016,12 +1064,12 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
       {subTab === 'augmentation' && (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Palette */}
-          <div style={{ width: 195, background: '#111113', borderRight: '1px solid #1e1e2e', padding: '10px 0', flexShrink: 0, overflowY: 'auto' }}>
-            <div style={{ padding: '2px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b' }}>
+          <div style={{ width: 195, background: t.bgPanel, borderRight: `1px solid ${t.borderSubtle}`, padding: '10px 0', flexShrink: 0, overflowY: 'auto' }}>
+            <div style={{ padding: '2px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint }}>
               Augmentations
             </div>
             {augNodeDefs.map((def) => <AugPaletteItem key={def.type} def={def} />)}
-            <div style={{ padding: '10px 12px 4px', marginTop: 8, borderTop: '1px solid #1e1e2e', fontSize: 10, color: '#3f3f46', lineHeight: 1.5 }}>
+            <div style={{ padding: '10px 12px 4px', marginTop: 8, borderTop: `1px solid ${t.borderSubtle}`, fontSize: 10, color: t.textDisabled, lineHeight: 1.5 }}>
               Drag transforms onto the canvas. Applied during training only.
             </div>
           </div>
@@ -1032,24 +1080,24 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
               {active && <AugFlow />}
             </div>
             {/* Preview bar */}
-            <div style={{ borderTop: '1px solid #1e1e2e', background: '#111113', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              <span style={{ fontSize: 11, color: '#52525b' }}>Preview image #</span>
+            <div style={{ borderTop: `1px solid ${t.borderSubtle}`, background: t.bgPanel, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: t.textFaint }}>Preview image #</span>
               <input
                 type="number" min={0} value={previewIndex}
                 onChange={(e) => setPreviewIndex(Math.max(0, +e.target.value))}
-                style={{ width: 60, background: '#18181b', border: '1px solid #27272a', borderRadius: 4, color: '#e4e4e7', fontSize: 11, padding: '3px 6px', outline: 'none' }}
+                style={{ width: 60, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 4, color: t.textPrimary, fontSize: 11, padding: '3px 6px', outline: 'none' }}
               />
               <button
                 onClick={handlePreview}
                 disabled={previewLoading}
-                style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #06b6d4', background: previewLoading ? '#1a1a2e' : 'rgba(6,182,212,0.12)', color: previewLoading ? '#52525b' : '#67e8f9', cursor: previewLoading ? 'not-allowed' : 'pointer' }}
+                style={{ padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: '1px solid #06b6d4', background: previewLoading ? '#1a1a2e' : 'rgba(6,182,212,0.12)', color: previewLoading ? t.textFaint : '#67e8f9', cursor: previewLoading ? 'not-allowed' : 'pointer' }}
               >
                 {previewLoading ? 'Generating…' : '⟡ Preview Augmentation'}
               </button>
               {previewError && <span style={{ fontSize: 11, color: '#fca5a5' }}>Error: {previewError}</span>}
               <div style={{ flex: 1 }} />
               {previewImg && (
-                <img src={previewImg} alt="Aug preview" style={{ height: 80, borderRadius: 6, border: '1px solid #27272a' }} />
+                <img src={previewImg} alt="Aug preview" style={{ height: 80, borderRadius: 6, border: `1px solid ${t.borderDefault}` }} />
               )}
             </div>
           </div>
@@ -1059,10 +1107,10 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
       {/* Export sub-tab */}
       {subTab === 'export' && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <div style={{ maxWidth: 500, padding: '32px 40px', background: '#111113', border: '1px solid #1e1e2e', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ maxWidth: 500, padding: '32px 40px', background: t.bgPanel, border: `1px solid ${t.borderSubtle}`, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: '#e4e4e7', marginBottom: 6 }}>Export to Training</div>
-              <div style={{ fontSize: 12, color: '#71717a', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: t.textPrimary, marginBottom: 6 }}>Export to Training</div>
+              <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.6 }}>
                 This sends your image dataset session (+ any augmentation steps you've built) to the Model page for training.
                 Switch to the Model page and choose the neural network that processes your images.
               </div>
@@ -1078,8 +1126,8 @@ function CVView({ cv, active = true }: { cv: CVDataset; active?: boolean }) {
                 { k: 'Aug. nodes', v: augPipelineNodes.filter((n) => n.type !== 'augSource').length },
               ].map(({ k, v }) => (
                 <div key={k}>
-                  <div style={{ fontSize: 10, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{k}</div>
-                  <div style={{ fontSize: 12, color: '#d4d4d8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</div>
+                  <div style={{ fontSize: 10, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{k}</div>
+                  <div style={{ fontSize: 12, color: t.textBody, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</div>
                 </div>
               ))}
             </div>
@@ -1129,7 +1177,7 @@ function EEGMiniChart({ data, sfreq, channels, colors }: { data: number[][], sfr
           </div>
         )
       })}
-      <div style={{ paddingLeft: 48, fontSize: 9, color: '#3f3f46', display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ paddingLeft: 48, fontSize: 9, color: t.textDisabled, display: 'flex', justifyContent: 'space-between' }}>
         <span>0 s</span><span>{times[times.length - 1]?.toFixed(1)} s</span>
       </div>
     </div>
@@ -1138,7 +1186,7 @@ function EEGMiniChart({ data, sfreq, channels, colors }: { data: number[][], sfr
 
 function SectionLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div style={{ padding: '4px 14px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b', ...style }}>
+    <div style={{ padding: '4px 14px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint, ...style }}>
       {children}
     </div>
   )
@@ -1146,18 +1194,22 @@ function SectionLabel({ children, style }: { children: React.ReactNode; style?: 
 
 // ── Pipeline view ─────────────────────────────────────────────────────────────
 
-function PipelineView({ mobile, active = true }: { mobile?: boolean; active?: boolean }) {
+function PipelineView({ mobile, active = true, onOpenCode }: {
+  mobile?: boolean
+  active?: boolean
+  onOpenCode?: () => void
+}) {
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   const palette = (
     <>
-      <div style={{ padding: '2px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b' }}>
+      <div style={{ padding: '2px 12px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint }}>
         Transforms
       </div>
       {datasetNodeDefs.map((def) => (
         <PipelinePaletteItem key={def.type} def={def} />
       ))}
-      <div style={{ padding: '10px 12px 4px', marginTop: 8, borderTop: '1px solid #1e1e2e', fontSize: 10, color: '#3f3f46', lineHeight: 1.5 }}>
+      <div style={{ padding: '10px 12px 4px', marginTop: 8, borderTop: `1px solid ${t.borderSubtle}`, fontSize: 10, color: t.textDisabled, lineHeight: 1.5 }}>
         Drag transforms onto the canvas
       </div>
     </>
@@ -1173,23 +1225,23 @@ function PipelineView({ mobile, active = true }: { mobile?: boolean; active?: bo
             style={{
               position: 'absolute', top: 10, left: 10, zIndex: 5,
               padding: '6px 10px', borderRadius: 6,
-              border: '1px solid #27272a', background: '#18181b',
-              color: '#d4d4d8', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              border: `1px solid ${t.borderDefault}`, background: t.bgElevated,
+              color: t.textBody, fontSize: 11, fontWeight: 600, cursor: 'pointer',
             }}
           >
             Transforms
           </button>
           {paletteOpen && (
             <>
-              <div role="presentation" onClick={() => setPaletteOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 40 }} />
+              <div role="presentation" onClick={() => setPaletteOpen(false)} style={{ position: 'fixed', inset: 0, background: t.overlay, zIndex: 40 }} />
               <div style={{
                 position: 'fixed', top: 52, left: 0, bottom: 0, width: 'min(280px, 88vw)',
-                zIndex: 50, background: '#111113', borderRight: '1px solid #1e1e2e',
+                zIndex: 50, background: t.bgPanel, borderRight: `1px solid ${t.borderSubtle}`,
                 overflowY: 'auto', padding: '10px 0',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 12px 8px', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#e4e4e7' }}>Transforms</span>
-                  <button type="button" onClick={() => setPaletteOpen(false)} style={{ background: 'none', border: 'none', color: '#71717a', fontSize: 18, cursor: 'pointer' }}>×</button>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary }}>Transforms</span>
+                  <button type="button" onClick={() => setPaletteOpen(false)} style={{ background: 'none', border: 'none', color: t.textMuted, fontSize: 18, cursor: 'pointer' }}>×</button>
                 </div>
                 {palette}
               </div>
@@ -1198,8 +1250,8 @@ function PipelineView({ mobile, active = true }: { mobile?: boolean; active?: bo
         </>
       ) : (
         <div style={{
-          width: 190, background: '#111113',
-          borderRight: '1px solid #1e1e2e',
+          width: 190, background: t.bgPanel,
+          borderRight: `1px solid ${t.borderSubtle}`,
           padding: '10px 0',
           flexShrink: 0,
           overflowY: 'auto',
@@ -1210,6 +1262,35 @@ function PipelineView({ mobile, active = true }: { mobile?: boolean; active?: bo
 
       {/* Pipeline canvas — unmount React Flow when leaving pipeline tab or app view */}
       <div style={{ flex: 1, position: 'relative' }}>
+        {onOpenCode && (
+          <button
+            type="button"
+            onClick={onOpenCode}
+            title="View generated Python pipeline code"
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              zIndex: 5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '6px 11px',
+              borderRadius: 7,
+              border: `1px solid ${t.accent}`,
+              background: 'rgba(124,58,237,0.14)',
+              color: t.accentMuted,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,58,237,0.28)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(124,58,237,0.14)' }}
+          >
+            View Python
+          </button>
+        )}
         {active && <DatasetFlow />}
       </div>
     </div>
@@ -1347,8 +1428,8 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
 
       {/* ── Left panel: controls ─────────────────────────────────────────── */}
       <div style={{
-        width: 240, background: '#111113',
-        borderRight: '1px solid #1e1e2e',
+        width: 240, background: t.bgPanel,
+        borderRight: `1px solid ${t.borderSubtle}`,
         overflowY: 'auto', flexShrink: 0,
         display: 'flex', flexDirection: 'column',
       }}>
@@ -1360,7 +1441,7 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
             if (defs.length === 0) return null
             return (
               <div key={group.label} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#3f3f46', marginBottom: 4 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: t.textDisabled, marginBottom: 4 }}>
                   {group.label}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -1370,9 +1451,9 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
                       onClick={() => setChartType(d.id)}
                       style={{
                         padding: '3px 9px', borderRadius: 5, fontSize: 11,
-                        border: chartType === d.id ? '1px solid #7c3aed' : '1px solid #27272a',
+                        border: chartType === d.id ? '1px solid #7c3aed' : `1px solid ${t.borderDefault}`,
                         background: chartType === d.id ? 'rgba(124,58,237,0.15)' : 'transparent',
-                        color: chartType === d.id ? '#a78bfa' : '#71717a',
+                        color: chartType === d.id ? t.accentMuted : t.textMuted,
                         cursor: 'pointer', fontWeight: chartType === d.id ? 600 : 400,
                         transition: 'all 0.1s',
                       }}
@@ -1386,7 +1467,7 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
           })}
         </div>
 
-        <div style={{ borderTop: '1px solid #1e1e2e', padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ borderTop: `1px solid ${t.borderSubtle}`, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
           {/* X Axis */}
           {activeDef?.id !== 'heatmap' && activeDef?.id !== 'pairplot' && (
@@ -1430,9 +1511,9 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
                   title={p}
                   style={{
                     padding: '2px 7px', borderRadius: 4, fontSize: 10,
-                    border: palette === p ? '1px solid #7c3aed' : '1px solid #27272a',
-                    background: palette === p ? 'rgba(124,58,237,0.15)' : '#18181b',
-                    color: palette === p ? '#a78bfa' : '#52525b',
+                    border: palette === p ? '1px solid #7c3aed' : `1px solid ${t.borderDefault}`,
+                    background: palette === p ? 'rgba(124,58,237,0.15)' : t.bgElevated,
+                    color: palette === p ? t.accentMuted : t.textFaint,
                     cursor: 'pointer', transition: 'all 0.1s',
                   }}
                 >
@@ -1446,9 +1527,9 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
         <div style={{ flex: 1 }} />
 
         {/* Plot button */}
-        <div style={{ padding: 12, borderTop: '1px solid #1e1e2e' }}>
+        <div style={{ padding: 12, borderTop: `1px solid ${t.borderSubtle}` }}>
           {dataset.rows.length > MAX_PLOT_ROWS && (
-            <p style={{ fontSize: 10, color: '#52525b', marginBottom: 8 }}>
+            <p style={{ fontSize: 10, color: t.textFaint, marginBottom: 8 }}>
               Sampling {MAX_PLOT_ROWS.toLocaleString()} of {dataset.rows.length.toLocaleString()} rows
             </p>
           )}
@@ -1457,9 +1538,9 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
             disabled={loading}
             style={{
               width: '100%', padding: '8px 0', borderRadius: 7,
-              border: '1px solid #7c3aed',
+              border: `1px solid ${t.accent}`,
               background: loading ? '#1a1a2e' : 'rgba(124,58,237,0.15)',
-              color: loading ? '#3f3f46' : '#a78bfa',
+              color: loading ? t.textDisabled : t.accentMuted,
               fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'background 0.12s',
             }}
@@ -1472,16 +1553,16 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
       </div>
 
       {/* ── Right panel: chart display ───────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#09090b' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.bgBase }}>
 
         {/* Toolbar above chart */}
         {imgSrc && !loading && (
           <div style={{
             height: 36, display: 'flex', alignItems: 'center',
-            padding: '0 14px', gap: 8, borderBottom: '1px solid #1e1e2e',
-            background: '#111113', flexShrink: 0,
+            padding: '0 14px', gap: 8, borderBottom: `1px solid ${t.borderSubtle}`,
+            background: t.bgPanel, flexShrink: 0,
           }}>
-            <span style={{ fontSize: 11, color: '#52525b' }}>
+            <span style={{ fontSize: 11, color: t.textFaint }}>
               {chartType} · {xCol}{yCol ? ` × ${yCol}` : ''}{hueCol ? ` · hue: ${hueCol}` : ''}
             </span>
             <div style={{ flex: 1 }} />
@@ -1489,11 +1570,11 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
               onClick={handleDownload}
               style={{
                 padding: '3px 10px', borderRadius: 5, fontSize: 11,
-                border: '1px solid #27272a', background: 'transparent',
-                color: '#71717a', cursor: 'pointer',
+                border: `1px solid ${t.borderDefault}`, background: 'transparent',
+                color: t.textMuted, cursor: 'pointer',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa'; e.currentTarget.style.borderColor = '#7c3aed' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#71717a'; e.currentTarget.style.borderColor = '#27272a' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = t.accentMuted; e.currentTarget.style.borderColor = t.accent }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.borderDefault }}
             >
               ↓ Save PNG
             </button>
@@ -1504,7 +1585,7 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 80 }}>
               <Spinner />
-              <span style={{ fontSize: 12, color: '#52525b' }}>Generating plot…</span>
+              <span style={{ fontSize: 12, color: t.textFaint }}>Generating plot…</span>
             </div>
           ) : error ? (
             <div style={{
@@ -1521,17 +1602,17 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
               alt="Generated chart"
               style={{
                 maxWidth: '100%', borderRadius: 10,
-                border: '1px solid #1e1e2e',
+                border: `1px solid ${t.borderSubtle}`,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
               }}
             />
           ) : (
             <div style={{ textAlign: 'center', marginTop: 80 }}>
               <div style={{ fontSize: 40, marginBottom: 14, opacity: 0.2 }}>⟡</div>
-              <p style={{ fontSize: 13, color: '#52525b', margin: '0 0 6px' }}>
-                Configure a chart and click <strong style={{ color: '#71717a' }}>Plot</strong>
+              <p style={{ fontSize: 13, color: t.textFaint, margin: '0 0 6px' }}>
+                Configure a chart and click <strong style={{ color: t.textMuted }}>Plot</strong>
               </p>
-              <p style={{ fontSize: 11, color: '#3f3f46', margin: 0 }}>
+              <p style={{ fontSize: 11, color: t.textDisabled, margin: 0 }}>
                 {dataset.rows.length.toLocaleString()} rows · {cols.length} columns available
               </p>
             </div>
@@ -1546,7 +1627,7 @@ function VisualizeView({ dataset }: { dataset: NonNullable<ReturnType<typeof use
 
 function VizLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#52525b', marginBottom: 5 }}>
+    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textFaint, marginBottom: 5 }}>
       {children}
     </div>
   )
@@ -1566,19 +1647,19 @@ function VizSelect({ label, value, onChange, options, optional }: {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{
-          width: '100%', background: '#18181b', border: '1px solid #27272a',
-          borderRadius: 5, color: '#e4e4e7', fontSize: 11,
+          width: '100%', background: t.bgElevated, border: `1px solid ${t.borderDefault}`,
+          borderRadius: 5, color: t.textPrimary, fontSize: 11,
           padding: '4px 7px', outline: 'none', cursor: 'pointer',
         }}
       >
-        {optional && <option value="" style={{ background: '#18181b' }}>— none —</option>}
-        {options.map((o) => <option key={o} value={o} style={{ background: '#18181b' }}>{o}</option>)}
+        {optional && <option value="" style={{ background: t.bgElevated }}>— none —</option>}
+        {options.map((o) => <option key={o} value={o} style={{ background: t.bgElevated }}>{o}</option>)}
       </select>
     </div>
   )
 }
 
-function Spinner({ color = '#7c3aed' }: { color?: string }) {
+function Spinner({ color = t.accent }: { color?: string }) {
   return (
     <div style={{
       width: 18, height: 18, borderRadius: '50%',
@@ -1608,15 +1689,15 @@ function ColumnCard({ col }: { col: ColumnInfo }) {
     <div style={{ padding: '8px 12px', borderBottom: '1px solid #1a1a20' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
         <TypeDot type={col.type} />
-        <span style={{ fontSize: 11, fontWeight: 500, color: '#d4d4d8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 500, color: t.textBody, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {col.name}
         </span>
       </div>
-      <div style={{ fontSize: 10, color: '#52525b' }}>
+      <div style={{ fontSize: 10, color: t.textFaint }}>
         {col.type === 'number' && (
           <>
             <span>{col.min?.toFixed(2)} – {col.max?.toFixed(2)}</span>
-            <span style={{ margin: '0 4px', color: '#27272a' }}>·</span>
+            <span style={{ margin: '0 4px', color: t.borderDefault }}>·</span>
             <span>μ {col.mean?.toFixed(2)}</span>
           </>
         )}
@@ -1637,7 +1718,7 @@ function ColumnCard({ col }: { col: ColumnInfo }) {
 function NullBar({ nullFrac }: { nullFrac: number }) {
   if (nullFrac === 0) return null
   return (
-    <div style={{ marginTop: 4, height: 3, background: '#27272a', borderRadius: 2, overflow: 'hidden' }}>
+    <div style={{ marginTop: 4, height: 3, background: t.borderDefault, borderRadius: 2, overflow: 'hidden' }}>
       <div style={{ height: '100%', width: `${nullFrac * 100}%`, background: '#f87171', borderRadius: 2 }} />
     </div>
   )
@@ -1655,8 +1736,8 @@ const thStyle: React.CSSProperties = {
   textAlign: 'left',
   fontWeight: 500,
   fontSize: 11,
-  color: '#71717a',
-  borderBottom: '1px solid #1e1e2e',
+  color: t.textMuted,
+  borderBottom: `1px solid ${t.borderSubtle}`,
   whiteSpace: 'nowrap',
   letterSpacing: '0.02em',
 }
@@ -1672,7 +1753,7 @@ const tdStyle: React.CSSProperties = {
 
 const indexCellStyle: React.CSSProperties = {
   ...tdStyle,
-  color: '#3f3f46',
+  color: t.textDisabled,
   fontSize: 10,
   textAlign: 'right',
   paddingRight: 8,
@@ -1681,9 +1762,9 @@ const indexCellStyle: React.CSSProperties = {
 
 // ── Shared components ─────────────────────────────────────────────────────────
 
-function TabBtn({ active, onClick, icon, label, accent, cv }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; accent?: boolean; cv?: boolean }) {
-  const bg = active ? (cv ? 'rgba(6,182,212,0.18)' : accent ? 'rgba(245,158,11,0.18)' : '#27272a') : 'transparent'
-  const color = active ? (cv ? '#67e8f9' : accent ? '#fbbf24' : '#e4e4e7') : '#71717a'
+function TabBtn({ active, onClick, icon, label, accent, cv, merge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; accent?: boolean; cv?: boolean; merge?: boolean }) {
+  const bg = active ? (merge ? 'rgba(34,197,94,0.18)' : cv ? 'rgba(6,182,212,0.18)' : accent ? 'rgba(245,158,11,0.18)' : t.borderDefault) : 'transparent'
+  const color = active ? (merge ? '#86efac' : cv ? '#67e8f9' : accent ? '#fbbf24' : t.textPrimary) : t.textMuted
   return (
     <button
       onClick={onClick}
@@ -1694,12 +1775,12 @@ function TabBtn({ active, onClick, icon, label, accent, cv }: { active: boolean;
   )
 }
 
-function UploadButton({ label, onClick, accent, edf, cv }: { label: string; onClick: () => void; accent?: boolean; edf?: boolean; cv?: boolean }) {
-  const borderCol = cv ? '#06b6d4' : edf ? '#8b5cf6' : accent ? '#0ea5e9' : '#27272a'
-  const bgCol     = cv ? 'rgba(6,182,212,0.08)' : edf ? 'rgba(139,92,246,0.08)' : accent ? 'rgba(14,165,233,0.08)' : 'transparent'
-  const textCol   = cv ? '#67e8f9' : edf ? '#c4b5fd' : accent ? '#7dd3fc' : '#a1a1aa'
-  const bgHov     = cv ? 'rgba(6,182,212,0.15)' : edf ? 'rgba(139,92,246,0.15)' : accent ? 'rgba(14,165,233,0.15)' : '#27272a'
-  const textHov   = cv ? '#a5f3fc' : edf ? '#ddd6fe' : accent ? '#bae6fd' : '#e4e4e7'
+function UploadButton({ label, onClick, accent, edf, cv, merge }: { label: string; onClick: () => void; accent?: boolean; edf?: boolean; cv?: boolean; merge?: boolean }) {
+  const borderCol = merge ? '#22c55e' : cv ? '#06b6d4' : edf ? '#8b5cf6' : accent ? '#0ea5e9' : t.borderDefault
+  const bgCol     = merge ? 'rgba(34,197,94,0.08)' : cv ? 'rgba(6,182,212,0.08)' : edf ? 'rgba(139,92,246,0.08)' : accent ? 'rgba(14,165,233,0.08)' : 'transparent'
+  const textCol   = merge ? '#86efac' : cv ? '#67e8f9' : edf ? '#c4b5fd' : accent ? '#7dd3fc' : t.textSecondary
+  const bgHov     = merge ? 'rgba(34,197,94,0.15)' : cv ? 'rgba(6,182,212,0.15)' : edf ? 'rgba(139,92,246,0.15)' : accent ? 'rgba(14,165,233,0.15)' : t.borderDefault
+  const textHov   = merge ? '#bbf7d0' : cv ? '#a5f3fc' : edf ? '#ddd6fe' : accent ? '#bae6fd' : t.textPrimary
   return (
     <button
       onClick={onClick}

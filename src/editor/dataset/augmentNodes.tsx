@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
 import type { NodeData } from '../nodeTypes'
@@ -7,9 +8,9 @@ import type { NodeData } from '../nodeTypes'
 const C = {
   source:  { border: '#0ea5e9', header: 'rgba(14,165,233,0.12)',  text: '#7dd3fc', handle: '#0ea5e9' },
   spatial: { border: '#06b6d4', header: 'rgba(6,182,212,0.11)',   text: '#67e8f9', handle: '#06b6d4' },
-  color:   { border: '#f59e0b', header: 'rgba(245,158,11,0.10)',  text: '#fcd34d', handle: '#f59e0b' },
+  color:   { border: t.warning, header: 'rgba(245,158,11,0.10)',  text: '#fcd34d', handle: t.warning },
   noise:   { border: '#8b5cf6', header: 'rgba(139,92,246,0.10)',  text: '#c4b5fd', handle: '#8b5cf6' },
-  norm:    { border: '#10b981', header: 'rgba(16,185,129,0.10)',  text: '#6ee7b7', handle: '#10b981' },
+  norm:    { border: t.success, header: 'rgba(16,185,129,0.10)',  text: '#6ee7b7', handle: t.success },
 }
 
 // ── Shared shell ──────────────────────────────────────────────────────────────
@@ -32,9 +33,9 @@ function AugNode({
   return (
     <div style={{
       width: 210,
-      background: '#18181b',
+      background: t.bgElevated,
       borderRadius: 9,
-      border: `1px solid ${selected ? color.border : '#27272a'}`,
+      border: `1px solid ${selected ? color.border : t.borderDefault}`,
       boxShadow: selected
         ? `0 0 0 1px ${color.border}40, 0 6px 20px rgba(0,0,0,0.4)`
         : '0 3px 12px rgba(0,0,0,0.35)',
@@ -43,9 +44,9 @@ function AugNode({
     }}>
       {hasTarget && (
         <Handle type="target" position={Position.Left}
-          style={{ width: 9, height: 9, background: '#18181b', border: `2px solid ${color.handle}`, left: -5, borderRadius: '50%' }} />
+          style={{ width: 9, height: 9, background: t.bgElevated, border: `2px solid ${color.handle}`, left: -5, borderRadius: '50%' }} />
       )}
-      <div style={{ background: color.header, borderBottom: '1px solid #27272a', padding: '7px 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ background: color.header, borderBottom: `1px solid ${t.borderDefault}`, padding: '7px 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: color.text }}>{label}</span>
         <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: color.border }} />
       </div>
@@ -61,8 +62,8 @@ function AugNode({
 function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
-      <span style={{ fontSize: 10, color: '#71717a' }}>{label}</span>
-      <span style={{ fontSize: 11, color: '#e4e4e7', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ fontSize: 10, color: t.textMuted }}>{label}</span>
+      <span style={{ fontSize: 11, color: t.textPrimary, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   )
 }
@@ -77,7 +78,7 @@ export function AugSourceNode({ data, selected }: NodeProps<NodeData & Record<st
   const shapeStr = shape ? `${shape[0]}×${shape[1]}×${shape[2]}` : '?'
   return (
     <AugNode label="Image Dataset" color={C.source} selected={selected} hasTarget={false}>
-      <div style={{ marginBottom: 6, fontSize: 12, fontWeight: 600, color: '#f4f4f5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+      <div style={{ marginBottom: 6, fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
       <Row label="Total images" value={total.toLocaleString()} />
       <Row label="Classes" value={classes} />
       <Row label="Shape (C×H×W)" value={shapeStr} />

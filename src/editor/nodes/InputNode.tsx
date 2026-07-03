@@ -42,6 +42,7 @@ registerNode({
   label: 'Input',
   description: 'Define the shape of the model input tensor',
   category: 'input',
+  paletteGroup: 'basic',
   defaultData: {
     label: 'Input',
     batchSize: 1,

@@ -45,9 +45,10 @@ function DenseNode({ id, data, selected }: NodeProps<DenseNodeType>) {
 
 registerNode({
   type: 'denseNode',
-  label: 'Dense',
+  label: 'Dense (Fully Connected)',
   description: 'Fully-connected linear layer',
   category: 'layers',
+  paletteGroup: 'basic',
   defaultData: {
     label: 'Dense',
     units: 128,

@@ -78,7 +78,7 @@ export function compileGraph(
 
   // Determine which imports are needed
   let needsF = false
-  let needsMath = false
+  let needsPosEnc = false
 
   const inputNode = sorted.find((n) => n.type === 'inputNode')
   const batchSize = (inputNode?.data.batchSize as number | undefined) ?? 1
@@ -328,7 +328,6 @@ export function compileGraph(
       const ffDim = (node.data.dimFeedforward as number | undefined) ?? 512
       const numLayers = (node.data.numLayers as number | undefined) ?? 2
       const drop = (node.data.dropout as number | undefined) ?? 0.1
-      needsMath = true
       initLines.push(`        self.te_proj_${sid} = nn.Linear(${inF}, ${dModel})  # project to d_model`)
       initLines.push(`        _enc_layer_${sid} = nn.TransformerEncoderLayer(d_model=${dModel}, nhead=${nhead}, dim_feedforward=${ffDim}, dropout=${drop}, batch_first=True)`)
       initLines.push(`        self.te_${sid} = nn.TransformerEncoder(_enc_layer_${sid}, num_layers=${numLayers})`)
@@ -336,6 +335,111 @@ export function compileGraph(
       const varName = `h_${sid}`
       forwardLines.push(`        _te_in_${sid} = self.te_proj_${sid}(${inp}).unsqueeze(1)  # (batch, 1, d_model)`)
       forwardLines.push(`        ${varName} = self.te_${sid}(_te_in_${sid}).squeeze(1)  # (batch, d_model)`)
+      varNames.set(node.id, varName)
+
+    // ── Gaussian Noise ────────────────────────────────────────────────────────
+    } else if (type === 'gaussianNoiseNode') {
+      const std = (node.data.std as number | undefined) ?? 0.1
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      forwardLines.push(`        ${varName} = ${inp} + torch.randn_like(${inp}) * ${std} if self.training else ${inp}`)
+      varNames.set(node.id, varName)
+
+    // ── Reshape ───────────────────────────────────────────────────────────────
+    } else if (type === 'reshapeNode') {
+      const target = (node.data.targetFeatures as number | undefined) ?? -1
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      if (target === -1) {
+        forwardLines.push(`        ${varName} = ${inp}.view(${inp}.size(0), -1)`)
+      } else {
+        forwardLines.push(`        ${varName} = ${inp}.view(${inp}.size(0), ${target})`)
+      }
+      varNames.set(node.id, varName)
+
+    // ── Layer Norm ────────────────────────────────────────────────────────────
+    } else if (type === 'layerNormNode') {
+      const inF = flatFeatures(shapes.get(firstParent ?? '') ?? { kind: 'flat', features: 1 })
+      const eps = (node.data.eps as number | undefined) ?? 1e-5
+      initLines.push(`        self.ln_${sid} = nn.LayerNorm(${inF}, eps=${eps})`)
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      forwardLines.push(`        ${varName} = self.ln_${sid}(${inp})`)
+      varNames.set(node.id, varName)
+
+    // ── Embedding ─────────────────────────────────────────────────────────────
+    } else if (type === 'embeddingNode') {
+      const numEmb = (node.data.numEmbeddings as number | undefined) ?? 1000
+      const embDim = (node.data.embeddingDim as number | undefined) ?? 128
+      const seqLen = flatFeatures(shapes.get(firstParent ?? '') ?? { kind: 'flat', features: 1 })
+      initLines.push(`        self.emb_${sid} = nn.Embedding(${numEmb}, ${embDim})`)
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      forwardLines.push(`        ${varName} = self.emb_${sid}(${inp}.long()).view(${inp}.size(0), -1)  # seq=${seqLen}, dim=${embDim}`)
+      varNames.set(node.id, varName)
+
+    // ── Positional Encoding ───────────────────────────────────────────────────
+    } else if (type === 'positionalEncodingNode') {
+      const dModel = (node.data.dModel as number | undefined) ?? 256
+      const maxLen = (node.data.maxLen as number | undefined) ?? 512
+      needsPosEnc = true
+      initLines.push(`        self.pe_${sid} = PositionalEncoding(${dModel}, max_len=${maxLen})`)
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      forwardLines.push(`        ${varName} = self.pe_${sid}(${inp}.unsqueeze(1)).squeeze(1)`)
+      varNames.set(node.id, varName)
+
+    // ── Feed Forward ──────────────────────────────────────────────────────────
+    } else if (type === 'feedForwardNode') {
+      const dModel = (node.data.dModel as number | undefined) ?? 256
+      const ffDim = (node.data.ffDim as number | undefined) ?? 512
+      const drop = (node.data.dropout as number | undefined) ?? 0.1
+      const act = (node.data.activation as string | undefined) ?? 'relu'
+      const actLayer = act === 'gelu' ? 'nn.GELU()' : 'nn.ReLU()'
+      if (act === 'gelu') needsF = true
+      initLines.push(`        self.ff_${sid} = nn.Sequential(`)
+      initLines.push(`            nn.Linear(${dModel}, ${ffDim}),`)
+      initLines.push(`            ${actLayer},`)
+      initLines.push(`            nn.Dropout(${drop}),`)
+      initLines.push(`            nn.Linear(${ffDim}, ${dModel}),`)
+      initLines.push(`        )`)
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      forwardLines.push(`        ${varName} = self.ff_${sid}(${inp})`)
+      varNames.set(node.id, varName)
+
+    // ── Multi-Head Attention ──────────────────────────────────────────────────
+    } else if (type === 'multiHeadAttentionNode') {
+      const embedDim = (node.data.embedDim as number | undefined) ?? 256
+      const numHeads = (node.data.numHeads as number | undefined) ?? 8
+      const drop = (node.data.dropout as number | undefined) ?? 0.1
+      initLines.push(`        self.mha_${sid} = nn.MultiheadAttention(${embedDim}, ${numHeads}, dropout=${drop}, batch_first=True)`)
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      forwardLines.push(`        _mha_out_${sid}, _ = self.mha_${sid}(${inp}.unsqueeze(1), ${inp}.unsqueeze(1), ${inp}.unsqueeze(1))`)
+      forwardLines.push(`        ${varName} = _mha_out_${sid}.squeeze(1)`)
+      varNames.set(node.id, varName)
+
+    // ── Concatenate ───────────────────────────────────────────────────────────
+    } else if (type === 'concatenateNode') {
+      const dim = (node.data.dim as number | undefined) ?? -1
+      const varName = `h_${sid}`
+      const inputVar = resolveInputMulti(node.id, nodeParents, varNames, forwardLines, dim)
+      forwardLines.push(`        ${varName} = ${inputVar}`)
+      varNames.set(node.id, varName)
+
+    // ── Add ───────────────────────────────────────────────────────────────────
+    } else if (type === 'addNode') {
+      const pair = resolveBinaryInputs(node.id, edges, varNames)
+      const varName = `h_${sid}`
+      if (pair) forwardLines.push(`        ${varName} = ${pair[0]} + ${pair[1]}`)
+      varNames.set(node.id, varName)
+
+    // ── Multiply ──────────────────────────────────────────────────────────────
+    } else if (type === 'multiplyNode') {
+      const pair = resolveBinaryInputs(node.id, edges, varNames)
+      const varName = `h_${sid}`
+      if (pair) forwardLines.push(`        ${varName} = ${pair[0]} * ${pair[1]}`)
       varNames.set(node.id, varName)
 
     // ── Dense ─────────────────────────────────────────────────────────────────
@@ -361,16 +465,32 @@ export function compileGraph(
     }
   }
 
-  void needsMath // may use in future
+  const peHelper = needsPosEnc ? [
+    ``,
+    `class PositionalEncoding(nn.Module):`,
+    `    def __init__(self, d_model: int, max_len: int = 512):`,
+    `        super().__init__()`,
+    `        pe = torch.zeros(max_len, d_model)`,
+    `        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)`,
+    `        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))`,
+    `        pe[:, 0::2] = torch.sin(position * div_term)`,
+    `        pe[:, 1::2] = torch.cos(position * div_term)`,
+    `        self.register_buffer('pe', pe.unsqueeze(0))`,
+    ``,
+    `    def forward(self, x: torch.Tensor) -> torch.Tensor:`,
+    `        return x + self.pe[:, :x.size(1)]`,
+    ``,
+  ] : []
 
   const lines: string[] = [
     `# Generated by Oneiros`,
     `# Project: ${projectName}`,
     ``,
+    `import math`,
     `import torch`,
     `import torch.nn as nn`,
     ...(needsF ? [`import torch.nn.functional as F`] : []),
-    ``,
+    ...peHelper,
     ``,
     `class ${safeClass}(nn.Module):`,
     `    def __init__(self):`,
@@ -405,12 +525,24 @@ function resolveInputMulti(
   nodeParents: string[],
   varNames: Map<string, string>,
   forwardLines: string[],
+  dim = -1,
 ): string {
   if (nodeParents.length === 0) return 'x'
   if (nodeParents.length === 1) return varNames.get(nodeParents[0]) ?? 'x'
   const sid = sanitize(nodeId)
   const parts = nodeParents.map((pid) => varNames.get(pid) ?? 'x').join(', ')
   const catVar = `cat_${sid}`
-  forwardLines.push(`        ${catVar} = torch.cat([${parts}], dim=-1)`)
+  forwardLines.push(`        ${catVar} = torch.cat([${parts}], dim=${dim})`)
   return catVar
+}
+
+function resolveBinaryInputs(
+  nodeId: string,
+  edges: AppEdge[],
+  varNames: Map<string, string>,
+): [string, string] | null {
+  const aEdge = edges.find((e) => e.target === nodeId && e.targetHandle === 'in_a')
+  const bEdge = edges.find((e) => e.target === nodeId && e.targetHandle === 'in_b')
+  if (!aEdge || !bEdge) return null
+  return [varNames.get(aEdge.source) ?? 'x', varNames.get(bEdge.source) ?? 'x']
 }

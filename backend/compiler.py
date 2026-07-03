@@ -164,7 +164,52 @@ def infer_shapes(sorted_nodes: list[dict], edges: list[dict]) -> dict[str, NodeS
                                "mobilenet_v2": 1280, "efficientnet_b0": 1280, "vgg16": 4096}
             shapes[nid] = FlatShape(features=_BACKBONE_FEATS.get(model_name, 512))
 
-        elif ntype in ("dropoutNode", "batchNormNode", "activationNode"):
+        elif ntype in ("dropoutNode", "batchNormNode", "activationNode", "gaussianNoiseNode", "layerNormNode"):
+            if first_parent_shape:
+                shapes[nid] = first_parent_shape
+
+        elif ntype == "reshapeNode":
+            target = int(data.get("targetFeatures", -1))
+            if target == -1 and first_parent_shape:
+                shapes[nid] = first_parent_shape
+            else:
+                shapes[nid] = FlatShape(features=target)
+
+        elif ntype == "embeddingNode":
+            emb_dim = int(data.get("embeddingDim", 128))
+            seq_len = flat_features(first_parent_shape) if first_parent_shape else 1
+            shapes[nid] = FlatShape(features=seq_len * emb_dim)
+
+        elif ntype == "positionalEncodingNode":
+            shapes[nid] = FlatShape(features=int(data.get("dModel", 256)))
+
+        elif ntype == "feedForwardNode":
+            shapes[nid] = FlatShape(features=int(data.get("dModel", 256)))
+
+        elif ntype == "multiHeadAttentionNode":
+            shapes[nid] = FlatShape(features=int(data.get("embedDim", 256)))
+
+        elif ntype == "concatenateNode":
+            parent_shapes = [shapes[pid] for pid in node_parents if pid in shapes]
+            if parent_shapes and all(s.kind == "flat" for s in parent_shapes):
+                shapes[nid] = FlatShape(features=sum(flat_features(s) for s in parent_shapes))
+            elif parent_shapes and all(isinstance(s, SpatialShape) for s in parent_shapes):
+                ref = parent_shapes[0]
+                if isinstance(ref, SpatialShape) and all(
+                    isinstance(s, SpatialShape) and s.height == ref.height and s.width == ref.width
+                    for s in parent_shapes
+                ):
+                    shapes[nid] = SpatialShape(
+                        channels=sum(s.channels for s in parent_shapes if isinstance(s, SpatialShape)),
+                        height=ref.height,
+                        width=ref.width,
+                    )
+                elif first_parent_shape:
+                    shapes[nid] = first_parent_shape
+            elif first_parent_shape:
+                shapes[nid] = first_parent_shape
+
+        elif ntype in ("addNode", "multiplyNode"):
             if first_parent_shape:
                 shapes[nid] = first_parent_shape
 
@@ -201,6 +246,22 @@ class Op:
     activation: str | None = None
     input_node_ids: list[str] = field(default_factory=list)
     extra: dict = field(default_factory=dict)  # node-type-specific extra state
+
+
+# ── Positional encoding helper ────────────────────────────────────────────────
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, max_len: int = 512):
+        super().__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer("pe", pe.unsqueeze(0))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x + self.pe[:, : x.size(1)]
 
 
 # ── Dynamic graph model ───────────────────────────────────────────────────────
@@ -324,6 +385,65 @@ class GraphModel(nn.Module):
                 layer = getattr(self, op.layer_attr)  # type: ignore[arg-type]
                 var[op.node_id] = layer(inp)
 
+            elif op.kind == "gaussian_noise":
+                inp = self._single(var, op.input_node_ids, x)
+                std = float(op.extra.get("std", 0.1))
+                var[op.node_id] = inp + torch.randn_like(inp) * std if self.training else inp
+
+            elif op.kind == "reshape":
+                inp = self._single(var, op.input_node_ids, x)
+                target = int(op.extra.get("target_features", -1))
+                var[op.node_id] = inp.view(inp.size(0), -1) if target == -1 else inp.view(inp.size(0), target)
+
+            elif op.kind == "layer_norm":
+                inp = self._single(var, op.input_node_ids, x)
+                layer = getattr(self, op.layer_attr)  # type: ignore[arg-type]
+                var[op.node_id] = layer(inp)
+
+            elif op.kind == "embedding":
+                inp = self._single(var, op.input_node_ids, x)
+                layer = getattr(self, op.layer_attr)  # type: ignore[arg-type]
+                out = layer(inp.long())
+                var[op.node_id] = out.view(out.size(0), -1)
+
+            elif op.kind == "positional_encoding":
+                inp = self._single(var, op.input_node_ids, x)
+                layer = getattr(self, op.layer_attr)  # type: ignore[arg-type]
+                var[op.node_id] = layer(inp.unsqueeze(1)).squeeze(1)
+
+            elif op.kind == "feed_forward":
+                inp = self._single(var, op.input_node_ids, x)
+                layer = getattr(self, op.layer_attr)  # type: ignore[arg-type]
+                var[op.node_id] = layer(inp)
+
+            elif op.kind == "multi_head_attention":
+                inp = self._single(var, op.input_node_ids, x)
+                layer = getattr(self, op.layer_attr)  # type: ignore[arg-type]
+                seq = inp.unsqueeze(1)
+                out, _ = layer(seq, seq, seq)
+                var[op.node_id] = out.squeeze(1)
+
+            elif op.kind == "concatenate":
+                dim = int(op.extra.get("dim", -1))
+                tensors = [var.get(nid, x) for nid in op.input_node_ids]
+                if len(tensors) == 1:
+                    var[op.node_id] = tensors[0]
+                else:
+                    flat_tensors = []
+                    for t in tensors:
+                        flat_tensors.append(t if t.dim() > 2 or dim != -1 else t.view(t.size(0), -1))
+                    var[op.node_id] = torch.cat(flat_tensors, dim=dim)
+
+            elif op.kind == "add":
+                a = var.get(op.input_node_ids[0], x)
+                b = var.get(op.input_node_ids[1], x)
+                var[op.node_id] = a + b
+
+            elif op.kind == "multiply":
+                a = var.get(op.input_node_ids[0], x)
+                b = var.get(op.input_node_ids[1], x)
+                var[op.node_id] = a * b
+
         return var[self._ops[-1].node_id]
 
     @staticmethod
@@ -338,6 +458,18 @@ class GraphModel(nn.Module):
             return fallback.view(fallback.size(0), -1)
         tensors = [var.get(nid, fallback).view(var.get(nid, fallback).size(0), -1) for nid in node_ids]
         return tensors[0] if len(tensors) == 1 else torch.cat(tensors, dim=-1)
+
+
+def _ordered_parents(nid: str, edges: list[dict], handle_order: list[str] | None = None) -> list[str]:
+    incoming = [e for e in edges if e["target"] == nid]
+    if handle_order:
+        result: list[str] = []
+        for handle in handle_order:
+            matched = [e for e in incoming if e.get("targetHandle") == handle]
+            if matched:
+                result.append(matched[0]["source"])
+        return result
+    return [e["source"] for e in incoming]
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -574,6 +706,67 @@ def build_model(graph: dict) -> tuple[GraphModel, list[str]]:
             attr = f"layer_{safe_id}"
             setattr(model, attr, nn.Linear(flat_features(in_shape), flat_features(out_shape)))
             ops.append(Op(kind="output", node_id=nid, layer_attr=attr, input_node_ids=node_parents))
+
+        elif ntype == "gaussianNoiseNode":
+            ops.append(Op(kind="gaussian_noise", node_id=nid, input_node_ids=node_parents, extra={"std": float(data.get("std", 0.1))}))
+
+        elif ntype == "reshapeNode":
+            ops.append(Op(kind="reshape", node_id=nid, input_node_ids=node_parents, extra={"target_features": int(data.get("targetFeatures", -1))}))
+
+        elif ntype == "layerNormNode":
+            nf = flat_features(first_parent_shape) if first_parent_shape else 1
+            eps = float(data.get("eps", 1e-5))
+            attr = f"ln_{safe_id}"
+            setattr(model, attr, nn.LayerNorm(nf, eps=eps))
+            ops.append(Op(kind="layer_norm", node_id=nid, layer_attr=attr, input_node_ids=node_parents))
+
+        elif ntype == "embeddingNode":
+            num_emb = int(data.get("numEmbeddings", 1000))
+            emb_dim = int(data.get("embeddingDim", 128))
+            attr = f"emb_{safe_id}"
+            setattr(model, attr, nn.Embedding(num_emb, emb_dim))
+            ops.append(Op(kind="embedding", node_id=nid, layer_attr=attr, input_node_ids=node_parents))
+
+        elif ntype == "positionalEncodingNode":
+            d_model = int(data.get("dModel", 256))
+            max_len = int(data.get("maxLen", 512))
+            attr = f"pe_{safe_id}"
+            setattr(model, attr, PositionalEncoding(d_model, max_len=max_len))
+            ops.append(Op(kind="positional_encoding", node_id=nid, layer_attr=attr, input_node_ids=node_parents))
+
+        elif ntype == "feedForwardNode":
+            d_model = int(data.get("dModel", 256))
+            ff_dim = int(data.get("ffDim", 512))
+            drop = float(data.get("dropout", 0.1))
+            act_name = str(data.get("activation", "relu"))
+            act = nn.GELU() if act_name == "gelu" else nn.ReLU()
+            attr = f"ff_{safe_id}"
+            setattr(model, attr, nn.Sequential(
+                nn.Linear(d_model, ff_dim),
+                act,
+                nn.Dropout(drop),
+                nn.Linear(ff_dim, d_model),
+            ))
+            ops.append(Op(kind="feed_forward", node_id=nid, layer_attr=attr, input_node_ids=node_parents))
+
+        elif ntype == "multiHeadAttentionNode":
+            embed_dim = int(data.get("embedDim", 256))
+            num_heads = int(data.get("numHeads", 8))
+            drop = float(data.get("dropout", 0.1))
+            attr = f"mha_{safe_id}"
+            setattr(model, attr, nn.MultiheadAttention(embed_dim, num_heads, dropout=drop, batch_first=True))
+            ops.append(Op(kind="multi_head_attention", node_id=nid, layer_attr=attr, input_node_ids=node_parents))
+
+        elif ntype == "concatenateNode":
+            ops.append(Op(kind="concatenate", node_id=nid, input_node_ids=node_parents, extra={"dim": int(data.get("dim", -1))}))
+
+        elif ntype == "addNode":
+            ordered = _ordered_parents(nid, edges, ["in_a", "in_b"])
+            ops.append(Op(kind="add", node_id=nid, input_node_ids=ordered))
+
+        elif ntype == "multiplyNode":
+            ordered = _ordered_parents(nid, edges, ["in_a", "in_b"])
+            ops.append(Op(kind="multiply", node_id=nid, input_node_ids=ordered))
 
     model._ops = ops
     return model, []

@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import type { NodeProps, Node } from '@xyflow/react'
 import BaseNode, { NodeRow } from './BaseNode'
 import { registerNode } from '../registry/nodeRegistry'
@@ -27,7 +28,7 @@ function AdaptiveAvgPool2dNode({ id, data, selected }: NodeProps<AdaptiveAvgPool
     >
       <NodeRow label="Output Size" value={`${data.outputSize}×${data.outputSize}`} />
       {data.outputSize === 1 && (
-        <div style={{ fontSize: 9, color: '#52525b', fontStyle: 'italic', padding: '2px 0' }}>global avg pool</div>
+        <div style={{ fontSize: 9, color: t.textFaint, fontStyle: 'italic', padding: '2px 0' }}>global avg pool</div>
       )}
     </BaseNode>
   )
@@ -38,6 +39,7 @@ registerNode({
   label: 'AdaptiveAvgPool2d',
   description: 'Global average pooling — spatial → flat(channels)',
   category: 'layers',
+  paletteGroup: 'convolutional',
   defaultData: {
     label: 'AdaptiveAvgPool2d',
     outputSize: 1,

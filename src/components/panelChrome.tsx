@@ -1,3 +1,4 @@
+import { t } from '../theme/tokens'
 import type { CSSProperties } from 'react'
 
 export const COLLAPSED_PANEL_WIDTH = 28
@@ -11,7 +12,7 @@ export function MobileDrawerBackdrop({ onClose }: { onClose: () => void }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: t.overlay,
         zIndex: 40,
       }}
     />
@@ -27,13 +28,13 @@ export function mobileDrawerStyle(side: 'left' | 'right'): CSSProperties {
     width: MOBILE_DRAWER_WIDTH,
     maxWidth: '100vw',
     zIndex: 50,
-    background: '#111113',
-    borderRight: side === 'left' ? '1px solid #1e1e2e' : undefined,
-    borderLeft: side === 'right' ? '1px solid #1e1e2e' : undefined,
+    background: t.bgPanel,
+    borderRight: side === 'left' ? `1px solid ${t.borderSubtle}` : undefined,
+    borderLeft: side === 'right' ? `1px solid ${t.borderSubtle}` : undefined,
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    boxShadow: side === 'left' ? '4px 0 24px rgba(0,0,0,0.4)' : '-4px 0 24px rgba(0,0,0,0.4)',
+    boxShadow: side === 'left' ? t.shadowDrawer : '-4px 0 24px rgba(0,0,0,0.4)',
   }
 }
 
@@ -41,13 +42,13 @@ export function MobileDrawerHeader({ title, onClose }: { title: string; onClose:
   return (
     <div style={{
       padding: '10px 12px',
-      borderBottom: '1px solid #1e1e2e',
+      borderBottom: `1px solid ${t.borderSubtle}`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       flexShrink: 0,
     }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: '#e4e4e7' }}>{title}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary }}>{title}</span>
       <button
         type="button"
         onClick={onClose}
@@ -56,9 +57,9 @@ export function MobileDrawerHeader({ title, onClose }: { title: string; onClose:
           width: 32,
           height: 32,
           borderRadius: 6,
-          border: '1px solid #27272a',
-          background: '#18181b',
-          color: '#a1a1aa',
+          border: `1px solid ${t.borderDefault}`,
+          background: t.bgElevated,
+          color: t.textSecondary,
           fontSize: 18,
           cursor: 'pointer',
           display: 'flex',
@@ -83,9 +84,9 @@ export function CollapseBtn({ side, onClick, title }: { side: 'left' | 'right'; 
         width: 22,
         height: 22,
         borderRadius: 5,
-        border: '1px solid #27272a',
-        background: '#18181b',
-        color: '#71717a',
+        border: `1px solid ${t.borderDefault}`,
+        background: t.bgElevated,
+        color: t.textMuted,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -94,14 +95,14 @@ export function CollapseBtn({ side, onClick, title }: { side: 'left' | 'right'; 
         transition: 'color 0.12s, border-color 0.12s, background 0.12s',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.color = '#e4e4e7'
-        e.currentTarget.style.borderColor = '#7c3aed'
-        e.currentTarget.style.background = '#1a1a2e'
+        e.currentTarget.style.color = t.textPrimary
+        e.currentTarget.style.borderColor = t.accent
+        e.currentTarget.style.background = t.bgHover
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.color = '#71717a'
-        e.currentTarget.style.borderColor = '#27272a'
-        e.currentTarget.style.background = '#18181b'
+        e.currentTarget.style.color = t.textMuted
+        e.currentTarget.style.borderColor = t.borderDefault
+        e.currentTarget.style.background = t.bgElevated
       }}
     >
       <ChevronIcon direction={side === 'left' ? 'left' : 'right'} />
@@ -120,9 +121,9 @@ export function CollapsedBar({ side, label, onToggle }: { side: 'left' | 'right'
           width: 22,
           height: 22,
           borderRadius: 5,
-          border: '1px solid #27272a',
-          background: '#18181b',
-          color: '#71717a',
+          border: `1px solid ${t.borderDefault}`,
+          background: t.bgElevated,
+          color: t.textMuted,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -131,12 +132,12 @@ export function CollapsedBar({ side, label, onToggle }: { side: 'left' | 'right'
           flexShrink: 0,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = '#e4e4e7'
-          e.currentTarget.style.borderColor = '#7c3aed'
+          e.currentTarget.style.color = t.textPrimary
+          e.currentTarget.style.borderColor = t.accent
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.color = '#71717a'
-          e.currentTarget.style.borderColor = '#27272a'
+          e.currentTarget.style.color = t.textMuted
+          e.currentTarget.style.borderColor = t.borderDefault
         }}
       >
         <ChevronIcon direction={side === 'left' ? 'right' : 'left'} />
@@ -150,7 +151,7 @@ export function CollapsedBar({ side, label, onToggle }: { side: 'left' | 'right'
           fontWeight: 600,
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
-          color: '#3f3f46',
+          color: t.textDisabled,
           userSelect: 'none',
         }}
       >
@@ -170,7 +171,7 @@ function ChevronIcon({ direction }: { direction: 'left' | 'right' }) {
   )
 }
 
-export function LoadingSpinner({ size = 14, color = '#a78bfa' }: { size?: number; color?: string }) {
+export function LoadingSpinner({ size = 14, color = t.accentMuted }: { size?: number; color?: string }) {
   return (
     <svg
       width={size}
@@ -188,7 +189,7 @@ export function LoadingSpinner({ size = 14, color = '#a78bfa' }: { size?: number
 
 export function LoadingLabel({ label }: { label: string }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10, color: '#71717a' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10, color: t.textMuted }}>
       <LoadingSpinner size={12} />
       {label}
     </span>
@@ -200,7 +201,7 @@ export function PanelBusyOverlay({ label }: { label: string }) {
     <div style={{
       position: 'absolute',
       inset: 0,
-      background: 'rgba(9,9,11,0.72)',
+      background: t.overlay,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -214,11 +215,11 @@ export function PanelBusyOverlay({ label }: { label: string }) {
         gap: 10,
         padding: '16px 20px',
         borderRadius: 10,
-        background: '#18181b',
-        border: '1px solid #27272a',
+        background: t.bgElevated,
+        border: `1px solid ${t.borderDefault}`,
       }}>
         <LoadingSpinner size={22} />
-        <span style={{ fontSize: 12, color: '#d4d4d8', fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 12, color: t.textBody, fontWeight: 500 }}>{label}</span>
       </div>
     </div>
   )

@@ -43,6 +43,7 @@ registerNode({
   label: 'GRU',
   description: 'Gated Recurrent Unit',
   category: 'recurrent',
+  paletteGroup: 'recurrent',
   defaultData: {
     label: 'GRU',
     hiddenSize: 128,

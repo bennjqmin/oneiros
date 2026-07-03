@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import { Handle, Position } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 
@@ -6,7 +7,7 @@ import type { NodeProps, Node } from '@xyflow/react'
 const C = {
   source: { border: '#0ea5e9', header: 'rgba(14,165,233,0.1)', text: '#7dd3fc', handle: '#0ea5e9' },
   transform: { border: '#6366f1', header: 'rgba(99,102,241,0.1)', text: '#a5b4fc', handle: '#6366f1' },
-  output: { border: '#10b981', header: 'rgba(16,185,129,0.1)', text: '#6ee7b7', handle: '#10b981' },
+  output: { border: t.success, header: 'rgba(16,185,129,0.1)', text: '#6ee7b7', handle: t.success },
 }
 
 // ── Shared components ─────────────────────────────────────────────────────────
@@ -30,9 +31,9 @@ function DSNode({
     <div
       style={{
         width: 196,
-        background: '#18181b',
+        background: t.bgElevated,
         borderRadius: 9,
-        border: `1px solid ${selected ? color.border : '#27272a'}`,
+        border: `1px solid ${selected ? color.border : t.borderDefault}`,
         boxShadow: selected
           ? `0 0 0 1px ${color.border}30, 0 6px 20px rgba(0,0,0,0.4)`
           : '0 3px 12px rgba(0,0,0,0.35)',
@@ -42,9 +43,9 @@ function DSNode({
     >
       {hasTarget && (
         <Handle type="target" position={Position.Left}
-          style={{ width: 9, height: 9, background: '#18181b', border: `2px solid ${color.handle}`, left: -5, borderRadius: '50%' }} />
+          style={{ width: 9, height: 9, background: t.bgElevated, border: `2px solid ${color.handle}`, left: -5, borderRadius: '50%' }} />
       )}
-      <div style={{ background: color.header, borderBottom: '1px solid #27272a', padding: '7px 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ background: color.header, borderBottom: `1px solid ${t.borderDefault}`, padding: '7px 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: color.text }}>{label}</span>
         <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: color.border }} />
       </div>
@@ -60,8 +61,8 @@ function DSNode({
 function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-      <span style={{ color: '#71717a' }}>{label}</span>
-      <span style={{ color: '#e4e4e7', fontWeight: 500 }}>{value}</span>
+      <span style={{ color: t.textMuted }}>{label}</span>
+      <span style={{ color: t.textPrimary, fontWeight: 500 }}>{value}</span>
     </div>
   )
 }
@@ -308,14 +309,14 @@ export const datasetNodeDefs: DatasetNodeDef[] = [
     type: 'fillNaNNode',
     label: 'Fill NaN',
     description: 'Impute missing values',
-    color: '#f59e0b',
+    color: t.warning,
     defaultData: { label: 'Fill NaN', strategy: 'mean', constant: 0 },
   },
   {
     type: 'dropDuplicatesNode',
     label: 'Drop Duplicates',
     description: 'Remove identical rows',
-    color: '#f59e0b',
+    color: t.warning,
     defaultData: { label: 'Drop Duplicates' },
   },
   // ── Feature transforms ───────────────────────────────────────────────────
@@ -410,7 +411,7 @@ export const datasetNodeDefs: DatasetNodeDef[] = [
     type: 'splitNode',
     label: 'Split',
     description: 'Train / val / test split',
-    color: '#10b981',
+    color: t.success,
     defaultData: { label: 'Split', trainRatio: 0.7, valRatio: 0.15, testRatio: 0.15 },
   },
 ]

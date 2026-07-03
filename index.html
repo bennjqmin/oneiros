@@ -8,6 +8,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&display=swap" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>oneiros</title>
+    <script>
+      (function () {
+        var key = 'oneiros-theme';
+        var saved = localStorage.getItem(key) || 'dark';
+        var resolved = saved === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : saved;
+        if (resolved !== 'dark' && resolved !== 'light' && resolved !== 'midnight') resolved = 'dark';
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved === 'light' ? 'light' : 'dark';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

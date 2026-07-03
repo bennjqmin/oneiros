@@ -49,6 +49,7 @@ registerNode({
   label: 'Conv2d',
   description: '2D convolution layer',
   category: 'layers',
+  paletteGroup: 'convolutional',
   defaultData: {
     label: 'Conv2d',
     outChannels: 32,

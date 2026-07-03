@@ -1,3 +1,4 @@
+import { t } from '../theme/tokens'
 import { useEffect, useRef, useState } from 'react'
 import {
   LineChart,
@@ -20,15 +21,21 @@ import type { TrainingConfig, EpochMetrics, SchedulerType } from '../types/train
 import type { ValidationIssue } from '../types/validation'
 import { useDeferredTabularValidation } from '../hooks/useDeferredTabularValidation'
 import { LoadingLabel, PanelBusyOverlay } from './panelChrome'
+import { useChartTheme } from '../theme/useChartTheme'
+import { useThemeSync } from '../theme/useThemeSync'
+
+import type { CodeMode } from './CodePanel'
 
 const API_BASE = 'http://localhost:8000'
 
 interface TrainingPanelProps {
   onClose: () => void
   mobile?: boolean
+  onOpenCode?: (mode: CodeMode) => void
 }
 
-export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
+export default function TrainingPanel({ onClose, mobile, onOpenCode }: TrainingPanelProps) {
+  useThemeSync()
   const status = useTrainingStore((s) => s.status)
   const statusMessage = useTrainingStore((s) => s.statusMessage)
   const config = useTrainingStore((s) => s.config)
@@ -108,8 +115,8 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
     <div style={{
       height: panelHeight,
       maxHeight: mobile ? '85dvh' : undefined,
-      background: '#0d0e14',
-      borderTop: '1px solid #1e1e2e',
+      background: t.topbarBg,
+      borderTop: `1px solid ${t.borderSubtle}`,
       display: 'flex',
       flexDirection: 'column',
       flexShrink: 0,
@@ -145,20 +152,20 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
         display: 'flex',
         alignItems: 'center',
         padding: '0 14px',
-        borderBottom: '1px solid #1e1e2e',
+        borderBottom: `1px solid ${t.borderSubtle}`,
         gap: 10,
         flexShrink: 0,
       }}>
         {/* Model type toggle */}
-        <div style={{ display: 'flex', gap: 2, background: '#18181b', border: '1px solid #27272a', borderRadius: 5, padding: 2 }}>
-          {(['nn', 'xgboost'] as const).map((t) => (
-            <button key={t} onClick={() => setConfig({ modelType: t })} style={{
+        <div style={{ display: 'flex', gap: 2, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 5, padding: 2 }}>
+          {(['nn', 'xgboost'] as const).map((type) => (
+            <button key={type} onClick={() => setConfig({ modelType: type })} style={{
               padding: '2px 9px', borderRadius: 4, fontSize: 10, fontWeight: 600,
               border: 'none', cursor: 'pointer',
-              background: config.modelType === t ? '#7c3aed' : 'transparent',
-              color: config.modelType === t ? '#fff' : '#52525b',
+              background: config.modelType === type ? t.accent : 'transparent',
+              color: config.modelType === type ? t.textPrimary : t.textFaint,
               textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>{t === 'nn' ? 'Neural Net' : 'XGBoost'}</button>
+            }}>{type === 'nn' ? 'Neural Net' : 'XGBoost'}</button>
           ))}
         </div>
 
@@ -166,11 +173,11 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
         {isXGB && <StatusBadge status={xgbStatus === 'running' ? 'running' : xgbStatus === 'complete' ? 'complete' : xgbStatus === 'error' ? 'error' : 'idle'} />}
 
         {!isXGB && statusMessage && (
-          <span style={{ fontSize: 11, color: '#71717a' }}>{statusMessage}</span>
+          <span style={{ fontSize: 11, color: t.textMuted }}>{statusMessage}</span>
         )}
 
         {!isXGB && etaSecs !== null && isRunning && (
-          <span style={{ fontSize: 11, color: '#52525b' }}>
+          <span style={{ fontSize: 11, color: t.textFaint }}>
             ETA {etaSecs < 60 ? `${etaSecs}s` : `${Math.round(etaSecs / 60)}m`}
           </span>
         )}
@@ -195,11 +202,11 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
 
         <button onClick={onClose} style={{
           background: 'transparent', border: 'none',
-          color: '#52525b', cursor: 'pointer', fontSize: 16, lineHeight: 1,
+          color: t.textFaint, cursor: 'pointer', fontSize: 16, lineHeight: 1,
           borderRadius: 4, padding: '2px 4px',
         }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#e4e4e7' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#52525b' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = t.textPrimary }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = t.textFaint }}
         >×</button>
       </div>
 
@@ -210,8 +217,8 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
           <>
             <div style={{
               width: mobile ? '100%' : 280,
-              borderRight: mobile ? undefined : '1px solid #1e1e2e',
-              borderBottom: mobile ? '1px solid #1e1e2e' : undefined,
+              borderRight: mobile ? undefined : `1px solid ${t.borderSubtle}`,
+              borderBottom: mobile ? `1px solid ${t.borderSubtle}` : undefined,
               padding: '12px 14px',
               overflowY: 'auto',
               flexShrink: 0,
@@ -223,7 +230,7 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
                   {xgbPreflightIssues.length > 0 && <PreflightPanel issues={xgbPreflightIssues} />}
                   <button
                     onClick={() => useTrainingStore.setState({ xgbStatus: 'idle', xgbError: null, xgbPreflightIssues: [] })}
-                    style={{ fontSize: 11, color: '#71717a', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, marginTop: 2 }}
+                    style={{ fontSize: 11, color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, marginTop: 2 }}
                   >
                     ← Back to config
                   </button>
@@ -231,7 +238,8 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
               ) : (
                 <>
                   <XGBConfigForm config={config} onChange={setConfig} onTrain={trainXGBoost}
-                    running={xgbStatus === 'running'} csvDatasetName={csvDataset?.name ?? null} csvTarget={csvTarget} />
+                    running={xgbStatus === 'running'} csvDatasetName={csvDataset?.name ?? null} csvTarget={csvTarget}
+                    onOpenCode={onOpenCode ? () => onOpenCode('xgboost') : undefined} />
                   {xgbStatus !== 'running' && xgbLiveIssues.loading && (
                     <div style={{ marginTop: 10 }}>
                       <LoadingLabel label="Checking dataset & pipeline…" />
@@ -254,7 +262,7 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
                 <XGBResults result={xgbResult} />
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <p style={{ fontSize: 12, color: '#3f3f46', margin: 0 }}>Configure and click Train XGBoost</p>
+                  <p style={{ fontSize: 12, color: t.textDisabled, margin: 0 }}>Configure and click Train XGBoost</p>
                 </div>
               )}
             </div>
@@ -262,14 +270,14 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
         ) : (
           /* ── Neural network layout ──────────────────────────────────────── */
           <>
-            <div style={{ width: mobile ? '100%' : 280, borderRight: mobile ? undefined : '1px solid #1e1e2e', borderBottom: mobile ? '1px solid #1e1e2e' : undefined, padding: '12px 14px', overflowY: 'auto', flexShrink: 0, maxHeight: mobile ? '45%' : undefined }}>
+            <div style={{ width: mobile ? '100%' : 280, borderRight: mobile ? undefined : `1px solid ${t.borderSubtle}`, borderBottom: mobile ? `1px solid ${t.borderSubtle}` : undefined, padding: '12px 14px', overflowY: 'auto', flexShrink: 0, maxHeight: mobile ? '45%' : undefined }}>
               {status === 'error' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <ErrorBlock message={errorMessage ?? 'Unknown error'} />
                   {preflightIssues.length > 0 && <PreflightPanel issues={preflightIssues} />}
                   <button
                     onClick={() => useTrainingStore.setState({ status: 'idle', errorMessage: null, preflightIssues: [] })}
-                    style={{ fontSize: 11, color: '#71717a', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, marginTop: 2 }}
+                    style={{ fontSize: 11, color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, marginTop: 2 }}
                   >
                     ← Back to config
                   </button>
@@ -277,7 +285,8 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
               ) : (
                 <>
                   <ConfigForm config={config} onChange={setConfig} onStart={startTraining} disabled={isRunning}
-                    csvDatasetName={csvDataset?.name ?? null} csvTarget={csvTarget} customDatasetInfo={customDatasetInfo} />
+                    csvDatasetName={csvDataset?.name ?? null} csvTarget={csvTarget} customDatasetInfo={customDatasetInfo}
+                    onOpenCode={onOpenCode ? () => onOpenCode('nn') : undefined} />
                   {!isRunning && liveIssues.length > 0 && (
                     <div style={{ marginTop: 10 }}>
                       <PreflightPanel issues={liveIssues as ValidationIssue[]} />
@@ -322,7 +331,7 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
                       ]}
                     />
                     <ChartPanel title="Accuracy" data={epochMetrics}
-                      lines={[{ key: 'valAccuracy' as keyof EpochMetrics, color: '#10b981', label: 'Val' }]}
+                      lines={[{ key: 'valAccuracy' as keyof EpochMetrics, color: t.success, label: 'Val' }]}
                       percent
                     />
                   </div>
@@ -335,7 +344,7 @@ export default function TrainingPanel({ onClose, mobile }: TrainingPanelProps) {
                 </div>
               ) : (status === 'idle' || status === 'stopped' || status === 'complete') ? (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <p style={{ fontSize: 12, color: '#3f3f46', textAlign: 'center', margin: 0 }}>
+                  <p style={{ fontSize: 12, color: t.textDisabled, textAlign: 'center', margin: 0 }}>
                     {status === 'complete' ? 'Training complete.' : 'Configure and start training.'}
                   </p>
                 </div>
@@ -358,6 +367,7 @@ function ConfigForm({
   csvDatasetName,
   csvTarget,
   customDatasetInfo,
+  onOpenCode,
 }: {
   config: TrainingConfig
   onChange: (patch: Partial<TrainingConfig>) => void
@@ -366,6 +376,7 @@ function ConfigForm({
   csvDatasetName: string | null
   csvTarget: string | null
   customDatasetInfo: import('../types/training').CustomDatasetPayload | null
+  onOpenCode?: () => void
 }) {
   const cvDataset = useDatasetStore((s) => s.cvDataset)
   const cvDatasetRef = useTrainingStore((s) => s.cvDatasetRef)
@@ -406,21 +417,21 @@ function ConfigForm({
         }}>
           {customReady ? (
             <>
-              <div style={{ color: '#a78bfa', fontWeight: 600, marginBottom: 2 }}>{csvDatasetName}</div>
-              <div style={{ color: '#71717a' }}>
-                Target: <span style={{ color: '#e4e4e7' }}>{csvTarget}</span>
+              <div style={{ color: t.accentMuted, fontWeight: 600, marginBottom: 2 }}>{csvDatasetName}</div>
+              <div style={{ color: t.textMuted }}>
+                Target: <span style={{ color: t.textPrimary }}>{csvTarget}</span>
               </div>
               {customDatasetInfo && (
                 <>
-                  <div style={{ color: '#71717a' }}>
-                    Features: <span style={{ color: '#e4e4e7' }}>{customDatasetInfo.featureCount}</span>
-                    {' · '}Classes: <span style={{ color: '#e4e4e7' }}>{customDatasetInfo.classCount}</span>
+                  <div style={{ color: t.textMuted }}>
+                    Features: <span style={{ color: t.textPrimary }}>{customDatasetInfo.featureCount}</span>
+                    {' · '}Classes: <span style={{ color: t.textPrimary }}>{customDatasetInfo.classCount}</span>
                   </div>
-                  <div style={{ color: '#71717a' }}>
-                    Train: <span style={{ color: '#e4e4e7' }}>{customDatasetInfo.trainSamples}</span>
-                    {' · '}Val: <span style={{ color: '#e4e4e7' }}>{customDatasetInfo.valSamples}</span>
+                  <div style={{ color: t.textMuted }}>
+                    Train: <span style={{ color: t.textPrimary }}>{customDatasetInfo.trainSamples}</span>
+                    {' · '}Val: <span style={{ color: t.textPrimary }}>{customDatasetInfo.valSamples}</span>
                   </div>
-                  <div style={{ color: '#52525b', marginTop: 2 }}>
+                  <div style={{ color: t.textFaint, marginTop: 2 }}>
                     Set Input node: channels={customDatasetInfo.featureCount}, H=1, W=1
                   </div>
                 </>
@@ -444,12 +455,12 @@ function ConfigForm({
           {cvDataset && cvDatasetRef ? (
             <>
               <div style={{ color: '#67e8f9', fontWeight: 600, marginBottom: 2 }}>{cvDataset.name}</div>
-              <div style={{ color: '#71717a' }}>
-                Classes: <span style={{ color: '#e4e4e7' }}>{cvDataset.classNames.length}</span>
-                {' · '}Images: <span style={{ color: '#e4e4e7' }}>{cvDataset.totalImages.toLocaleString()}</span>
+              <div style={{ color: t.textMuted }}>
+                Classes: <span style={{ color: t.textPrimary }}>{cvDataset.classNames.length}</span>
+                {' · '}Images: <span style={{ color: t.textPrimary }}>{cvDataset.totalImages.toLocaleString()}</span>
               </div>
-              <div style={{ color: '#71717a' }}>
-                Shape: <span style={{ color: '#e4e4e7' }}>{cvDataset.inputShape[0]}×{cvDataset.inputShape[1]}×{cvDataset.inputShape[2]}</span>
+              <div style={{ color: t.textMuted }}>
+                Shape: <span style={{ color: t.textPrimary }}>{cvDataset.inputShape[0]}×{cvDataset.inputShape[1]}×{cvDataset.inputShape[2]}</span>
               </div>
               {cvDatasetRef.augmentSteps.length === 0 && (
                 <div style={{ color: '#fcd34d', marginTop: 3 }}>
@@ -517,9 +528,9 @@ function ConfigForm({
           marginTop: 12,
           padding: '7px 0',
           borderRadius: 6,
-          border: '1px solid #7c3aed',
+          border: `1px solid ${t.accent}`,
           background: (disabled || (isCustom && !customReady)) ? '#1a1a2e' : '#7c3aed1a',
-          color: (disabled || (isCustom && !customReady)) ? '#3f3f46' : '#a78bfa',
+          color: (disabled || (isCustom && !customReady)) ? t.textDisabled : t.accentMuted,
           fontSize: 12,
           fontWeight: 600,
           cursor: (disabled || (isCustom && !customReady)) ? 'not-allowed' : 'pointer',
@@ -530,6 +541,28 @@ function ConfigForm({
       >
         Start Training
       </button>
+
+      {onOpenCode && (
+        <button
+          type="button"
+          onClick={onOpenCode}
+          disabled={disabled}
+          style={{
+            width: '100%',
+            marginTop: 8,
+            padding: '6px 0',
+            borderRadius: 6,
+            border: `1px solid ${t.borderDefault}`,
+            background: disabled ? 'transparent' : t.accentSubtle,
+            color: disabled ? t.textDisabled : t.accentMuted,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+          }}
+        >
+          View Code
+        </button>
+      )}
     </div>
   )
 }
@@ -538,10 +571,10 @@ function ConfigForm({
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { color: string; bg: string; label: string }> = {
-    idle: { color: '#52525b', bg: 'transparent', label: 'Idle' },
+    idle: { color: t.textFaint, bg: 'transparent', label: 'Idle' },
     connecting: { color: '#fbbf24', bg: 'rgba(245,158,11,0.1)', label: 'Connecting…' },
     running: { color: '#34d399', bg: 'rgba(16,185,129,0.1)', label: 'Training' },
-    stopped: { color: '#a1a1aa', bg: 'rgba(161,161,170,0.1)', label: 'Stopped' },
+    stopped: { color: t.textSecondary, bg: 'rgba(161,161,170,0.1)', label: 'Stopped' },
     complete: { color: '#818cf8', bg: 'rgba(129,140,248,0.1)', label: 'Complete' },
     error: { color: '#f87171', bg: 'rgba(239,68,68,0.1)', label: 'Error' },
   }
@@ -565,8 +598,8 @@ function StatusBadge({ status }: { status: string }) {
 function ProgressRow({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: 10, color: '#71717a', marginBottom: 3 }}>{label}</div>
-      <div style={{ height: 4, background: '#27272a', borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>{label}</div>
+      <div style={{ height: 4, background: t.borderDefault, borderRadius: 2, overflow: 'hidden' }}>
         <div style={{
           height: '100%',
           width: `${Math.min(value * 100, 100)}%`,
@@ -582,8 +615,8 @@ function ProgressRow({ label, value, color }: { label: string; value: number; co
 function MetricChip({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <span style={{ fontSize: 9, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 600, color: accent ? '#34d399' : '#e4e4e7', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ fontSize: 9, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: accent ? t.success : t.textPrimary, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   )
 }
@@ -599,26 +632,27 @@ function ChartPanel({
   lines: { key: keyof EpochMetrics; color: string; label: string }[]
   percent?: boolean
 }) {
+  const chart = useChartTheme()
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
         {title}
       </div>
       <ResponsiveContainer width="100%" height="90%">
         <LineChart data={data} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e2030" />
-          <XAxis dataKey="epoch" stroke="#3f3f46" tick={{ fontSize: 9, fill: '#52525b' }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+          <XAxis dataKey="epoch" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
           <YAxis
-            stroke="#3f3f46"
-            tick={{ fontSize: 9, fill: '#52525b' }}
+            stroke={chart.axisStroke}
+            tick={{ fontSize: 9, fill: t.textFaint }}
             tickFormatter={percent ? (v: number) => `${(v * 100).toFixed(0)}%` : undefined}
           />
           <Tooltip
-            contentStyle={{ background: '#18181b', border: '1px solid #27272a', fontSize: 11, borderRadius: 6 }}
-            labelStyle={{ color: '#71717a' }}
+            contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }}
+            labelStyle={{ color: t.textMuted }}
             formatter={percent ? (v: unknown) => [`${((v as number) * 100).toFixed(1)}%`] : undefined}
           />
-          {lines.length > 1 && <Legend wrapperStyle={{ fontSize: 9, color: '#71717a' }} />}
+          {lines.length > 1 && <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />}
           {lines.map((l) => (
             <Line
               key={l.key}
@@ -645,7 +679,7 @@ const CATEGORY_META: Record<string, { label: string; color: string; icon: string
   config:    { label: 'Config',    color: '#facc15', icon: '⚙' },
   dataset:   { label: 'Dataset',   color: '#60a5fa', icon: '📊' },
   training:  { label: 'Runtime',   color: '#f472b6', icon: '⚡' },
-  other:     { label: 'Other',     color: '#a78bfa', icon: '●' },
+  other:     { label: 'Other',     color: t.accentMuted, icon: '●' },
 }
 
 const SEV_COLOR: Record<string, string> = { error: '#f87171', warning: '#fbbf24', info: '#60a5fa' }
@@ -772,12 +806,12 @@ function PreflightPanel({ issues }: { issues: ValidationIssue[] }) {
                 {cat.icon} {cat.label}
               </span>
               {issue.nodeId && (
-                <span style={{ fontSize: 9, color: '#52525b', fontFamily: 'ui-monospace,monospace' }}>node:{issue.nodeId.slice(0, 6)}</span>
+                <span style={{ fontSize: 9, color: t.textFaint, fontFamily: 'ui-monospace,monospace' }}>node:{issue.nodeId.slice(0, 6)}</span>
               )}
             </div>
-            <div style={{ fontSize: 11, color: '#d4d4d8' }}>{issue.message}</div>
+            <div style={{ fontSize: 11, color: t.textBody }}>{issue.message}</div>
             {issue.hint && (
-              <div style={{ fontSize: 10, color: '#a1a1aa', marginTop: 2, display: 'flex', gap: 4 }}>
+              <div style={{ fontSize: 10, color: t.textSecondary, marginTop: 2, display: 'flex', gap: 4 }}>
                 <span>↳</span><span>{issue.hint}</span>
               </div>
             )}
@@ -792,9 +826,9 @@ function PanelBtn({ onClick, label, danger, accent }: { onClick: () => void; lab
   return (
     <button onClick={onClick} style={{
       padding: '3px 10px', borderRadius: 5,
-      border: `1px solid ${danger ? '#7f1d1d' : accent ? '#7c3aed' : '#27272a'}`,
+      border: `1px solid ${danger ? '#7f1d1d' : accent ? t.accent : t.borderDefault}`,
       background: danger ? 'rgba(239,68,68,0.08)' : accent ? 'rgba(124,58,237,0.12)' : 'transparent',
-      color: danger ? '#f87171' : accent ? '#a78bfa' : '#71717a',
+      color: danger ? '#f87171' : accent ? t.accentMuted : t.textMuted,
       fontSize: 11, fontWeight: 500, cursor: 'pointer',
     }}>
       {label}
@@ -813,18 +847,18 @@ function CfgSelect({
 }) {
   return (
     <div style={{ marginBottom: 9 }}>
-      <div style={{ fontSize: 10, color: '#71717a', marginBottom: 3, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3, fontWeight: 500 }}>{label}</div>
       <select
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         style={{
-          width: '100%', background: '#18181b', border: '1px solid #27272a',
-          borderRadius: 5, color: disabled ? '#52525b' : '#e4e4e7',
+          width: '100%', background: t.bgElevated, border: `1px solid ${t.borderDefault}`,
+          borderRadius: 5, color: disabled ? t.textFaint : t.textPrimary,
           fontSize: 11, padding: '4px 7px', outline: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
         }}
       >
-        {options.map((o) => <option key={o.value} value={o.value} style={{ background: '#18181b' }}>{o.label}</option>)}
+        {options.map((o) => <option key={o.value} value={o.value} style={{ background: t.bgElevated }}>{o.label}</option>)}
       </select>
     </div>
   )
@@ -842,7 +876,7 @@ function CfgNumber({
 }) {
   return (
     <div style={{ marginBottom: 9 }}>
-      <div style={{ fontSize: 10, color: '#71717a', marginBottom: 3, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3, fontWeight: 500 }}>{label}</div>
       <input
         type="number"
         value={value}
@@ -851,8 +885,8 @@ function CfgNumber({
         step={step ?? 1}
         onChange={(e) => onChange(Number(e.target.value))}
         style={{
-          width: '100%', background: '#18181b', border: '1px solid #27272a',
-          borderRadius: 5, color: disabled ? '#52525b' : '#e4e4e7',
+          width: '100%', background: t.bgElevated, border: `1px solid ${t.borderDefault}`,
+          borderRadius: 5, color: disabled ? t.textFaint : t.textPrimary,
           fontSize: 11, padding: '4px 7px', outline: 'none',
           cursor: disabled ? 'not-allowed' : 'text',
           boxSizing: 'border-box',
@@ -864,13 +898,14 @@ function CfgNumber({
 
 // ── XGBoost config form ───────────────────────────────────────────────────────
 
-function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csvTarget }: {
+function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csvTarget, onOpenCode }: {
   config: TrainingConfig
   onChange: (patch: Partial<TrainingConfig>) => void
   onTrain: () => void
   running: boolean
   csvDatasetName: string | null
   csvTarget: string | null
+  onOpenCode?: () => void
 }) {
   const ready = !!csvDatasetName && !!csvTarget
   const isRegression = config.xgbTask === 'regression'
@@ -895,8 +930,8 @@ function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csv
         border: `1px solid ${ready ? '#7c3aed30' : '#ef444430'}`, borderRadius: 6, fontSize: 10, lineHeight: 1.7 }}>
         {ready ? (
           <>
-            <div style={{ color: '#a78bfa', fontWeight: 600 }}>{csvDatasetName}</div>
-            <div style={{ color: '#71717a' }}>Target: <span style={{ color: '#e4e4e7' }}>{csvTarget}</span></div>
+            <div style={{ color: t.accentMuted, fontWeight: 600 }}>{csvDatasetName}</div>
+            <div style={{ color: t.textMuted }}>Target: <span style={{ color: t.textPrimary }}>{csvTarget}</span></div>
           </>
         ) : (
           <span style={{ color: '#f87171' }}>Load a CSV dataset in the Dataset tab and set a target column.</span>
@@ -905,15 +940,15 @@ function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csv
 
       {/* Task toggle */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#52525b', marginBottom: 5 }}>Task</div>
-        <div style={{ display: 'flex', gap: 3, background: '#18181b', border: '1px solid #27272a', borderRadius: 5, padding: 2 }}>
-          {(['classification', 'regression'] as const).map((t) => (
-            <button key={t} disabled={running} onClick={() => onChange({ xgbTask: t, xgbObjective: '' })} style={{
+        <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: t.textFaint, marginBottom: 5 }}>Task</div>
+        <div style={{ display: 'flex', gap: 3, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 5, padding: 2 }}>
+          {(['classification', 'regression'] as const).map((task) => (
+            <button key={task} disabled={running} onClick={() => onChange({ xgbTask: task, xgbObjective: '' })} style={{
               flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 10, fontWeight: 600, border: 'none',
-              background: config.xgbTask === t ? (t === 'regression' ? '#b45309' : '#4c1d95') : 'transparent',
-              color: config.xgbTask === t ? '#fff' : '#52525b',
+              background: config.xgbTask === task ? (task === 'regression' ? '#b45309' : '#4c1d95') : 'transparent',
+              color: config.xgbTask === task ? t.textPrimary : t.textFaint,
               cursor: running ? 'not-allowed' : 'pointer', textTransform: 'capitalize',
-            }}>{t}</button>
+            }}>{task}</button>
           ))}
         </div>
       </div>
@@ -929,7 +964,7 @@ function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csv
         />
       )}
 
-      <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#52525b', marginBottom: 6 }}>
+      <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: t.textFaint, marginBottom: 6 }}>
         Hyperparameters
       </div>
       <CfgNumber label="n_estimators" value={config.xgbNEstimators} onChange={(v) => onChange({ xgbNEstimators: v })} min={1} disabled={running} />
@@ -945,13 +980,35 @@ function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csv
 
       <button onClick={onTrain} disabled={running || !ready} style={{
         width: '100%', marginTop: 12, padding: '7px 0', borderRadius: 6,
-        border: `1px solid ${isRegression ? '#d97706' : '#f59e0b'}`,
+        border: `1px solid ${isRegression ? '#d97706' : t.warning}`,
         background: (running || !ready) ? '#1a1a2e' : (isRegression ? 'rgba(180,83,9,0.15)' : 'rgba(245,158,11,0.12)'),
-        color: (running || !ready) ? '#3f3f46' : '#fbbf24',
+        color: (running || !ready) ? t.textDisabled : '#fbbf24',
         fontSize: 12, fontWeight: 600, cursor: (running || !ready) ? 'not-allowed' : 'pointer',
       }}>
         {running ? 'Training…' : `⚡ Train (${isRegression ? 'Regression' : 'Classification'})`}
       </button>
+
+      {onOpenCode && (
+        <button
+          type="button"
+          onClick={onOpenCode}
+          disabled={!ready}
+          style={{
+            width: '100%',
+            marginTop: 8,
+            padding: '6px 0',
+            borderRadius: 6,
+            border: `1px solid ${t.borderDefault}`,
+            background: ready ? t.accentSubtle : 'transparent',
+            color: ready ? t.accentMuted : t.textDisabled,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: ready ? 'pointer' : 'not-allowed',
+          }}
+        >
+          View Code
+        </button>
+      )}
     </div>
   )
 }
@@ -959,6 +1016,7 @@ function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csv
 // ── XGBoost results ───────────────────────────────────────────────────────────
 
 function XGBResults({ result }: { result: XGBResult }) {
+  const chart = useChartTheme()
   const top10 = result.featureImportance.slice(0, 10)
   const showAccuracyChart =
     result.task === 'classification' &&
@@ -987,16 +1045,16 @@ function XGBResults({ result }: { result: XGBResult }) {
       {result.evals.length > 0 && (
         <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
               Loss per Round
             </div>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e2030" />
-                <XAxis dataKey="round" stroke="#3f3f46" tick={{ fontSize: 9, fill: '#52525b' }} />
-                <YAxis stroke="#3f3f46" tick={{ fontSize: 9, fill: '#52525b' }} />
-                <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', fontSize: 11, borderRadius: 6 }} labelStyle={{ color: '#71717a' }} />
-                <Legend wrapperStyle={{ fontSize: 9, color: '#71717a' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+                <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+                <YAxis stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+                <Tooltip contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }} labelStyle={{ color: t.textMuted }} />
+                <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
                 <Line type="monotone" dataKey="trainLoss" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Train" isAnimationActive={false} />
                 <Line type="monotone" dataKey="valLoss" stroke="#fbbf24" strokeWidth={1.5} dot={false} name="Val" isAnimationActive={false} />
               </LineChart>
@@ -1005,25 +1063,25 @@ function XGBResults({ result }: { result: XGBResult }) {
 
           {showAccuracyChart && (
             <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
                 Accuracy per Round
               </div>
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e2030" />
-                  <XAxis dataKey="round" stroke="#3f3f46" tick={{ fontSize: 9, fill: '#52525b' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+                  <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
                   <YAxis
-                    stroke="#3f3f46"
-                    tick={{ fontSize: 9, fill: '#52525b' }}
+                    stroke={chart.axisStroke}
+                    tick={{ fontSize: 9, fill: t.textFaint }}
                     domain={[0, 1]}
                     tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
                   />
                   <Tooltip
-                    contentStyle={{ background: '#18181b', border: '1px solid #27272a', fontSize: 11, borderRadius: 6 }}
-                    labelStyle={{ color: '#71717a' }}
+                    contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }}
+                    labelStyle={{ color: t.textMuted }}
                     formatter={(v: unknown) => [`${((v as number) * 100).toFixed(1)}%`]}
                   />
-                  <Legend wrapperStyle={{ fontSize: 9, color: '#71717a' }} />
+                  <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
                   <Line type="monotone" dataKey="trainAccuracy" stroke="#10b981" strokeWidth={1.5} dot={false} name="Train" isAnimationActive={false} />
                   <Line type="monotone" dataKey="valAccuracy" stroke="#34d399" strokeWidth={1.5} dot={false} name="Val" isAnimationActive={false} />
                 </LineChart>
@@ -1036,22 +1094,22 @@ function XGBResults({ result }: { result: XGBResult }) {
       <div style={{ flexShrink: 0, display: 'flex', gap: 12, minHeight: 220 }}>
         {/* Feature importance */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
             Feature Importance (top 10)
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={top10} layout="vertical" margin={{ top: 2, right: 8, left: 8, bottom: 2 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e2030" horizontal={false} />
-              <XAxis type="number" stroke="#3f3f46" tick={{ fontSize: 9, fill: '#52525b' }} />
-              <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} horizontal={false} />
+              <XAxis type="number" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 9, fill: t.textSecondary }} />
               <Tooltip
-                contentStyle={{ background: '#18181b', border: '1px solid #27272a', fontSize: 11, borderRadius: 6 }}
-                labelStyle={{ color: '#71717a' }}
+                contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }}
+                labelStyle={{ color: t.textMuted }}
                 formatter={(v: unknown) => [(v as number).toFixed(4)]}
               />
               <Bar dataKey="importance" radius={[0, 3, 3, 0]}>
                 {top10.map((_, i) => (
-                  <Cell key={i} fill={i === 0 ? '#f59e0b' : i < 3 ? '#d97706' : '#92400e'} />
+                  <Cell key={i} fill={i === 0 ? t.warning : i < 3 ? '#d97706' : '#92400e'} />
                 ))}
               </Bar>
             </BarChart>
@@ -1084,16 +1142,16 @@ function ConfusionMatrixPanel({ matrix, classNames }: { matrix: number[][]; clas
 
   return (
     <div style={{ flexShrink: 0, marginTop: 8 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b', marginBottom: 6 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint, marginBottom: 6 }}>
         Confusion Matrix (validation set)
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ borderCollapse: 'collapse', fontSize }}>
           <thead>
             <tr>
-              <th style={{ padding: 2, color: '#3f3f46', fontSize: fontSize - 1 }}>P↓ T→</th>
+              <th style={{ padding: 2, color: t.textDisabled, fontSize: fontSize - 1 }}>P↓ T→</th>
               {labels.map((lbl) => (
-                <th key={lbl} style={{ padding: 2, color: '#71717a', minWidth: cellSize, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: cellSize }}>
+                <th key={lbl} style={{ padding: 2, color: t.textMuted, minWidth: cellSize, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: cellSize }}>
                   {lbl.length > 6 ? lbl.slice(0, 5) + '…' : lbl}
                 </th>
               ))}
@@ -1102,14 +1160,14 @@ function ConfusionMatrixPanel({ matrix, classNames }: { matrix: number[][]; clas
           <tbody>
             {matrix.map((row, ri) => (
               <tr key={ri}>
-                <td style={{ padding: 2, color: '#71717a', fontSize: fontSize - 1, whiteSpace: 'nowrap', maxWidth: cellSize * 1.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <td style={{ padding: 2, color: t.textMuted, fontSize: fontSize - 1, whiteSpace: 'nowrap', maxWidth: cellSize * 1.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {(labels[ri] ?? '').length > 6 ? (labels[ri] ?? '').slice(0, 5) + '…' : (labels[ri] ?? '')}
                 </td>
                 {row.map((v, ci) => (
                   <td key={ci} style={{
                     width: cellSize, height: cellSize, textAlign: 'center',
                     background: cellColor(v),
-                    color: v / maxVal > 0.5 ? '#09090b' : '#e4e4e7',
+                    color: v / maxVal > 0.5 ? t.bgBase : t.textPrimary,
                     borderRadius: 2,
                     fontWeight: ri === ci ? 700 : 400,
                     border: ri === ci ? '1px solid rgba(16,185,129,0.5)' : '1px solid transparent',

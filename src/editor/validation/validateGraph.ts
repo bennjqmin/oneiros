@@ -31,11 +31,12 @@ function detectCycles(nodes: AppNode[], edges: AppEdge[]): Set<string> {
 
 type TensorKind = 'spatial' | 'flat' | 'unknown'
 
-const SPATIAL_PRODUCERS = new Set(['inputNode', 'conv2dNode', 'conv1dNode', 'maxPool2dNode', 'avgPool2dNode'])
-const FLAT_PRODUCERS    = new Set(['denseNode', 'flattenNode', 'adaptiveAvgPool2dNode', 'rnnNode', 'lstmNode', 'gruNode', 'transformerEncoderNode'])
-const PASSTHROUGH       = new Set(['dropoutNode', 'batchNormNode', 'activationNode'])
-const NEEDS_SPATIAL     = new Set(['conv2dNode', 'maxPool2dNode', 'avgPool2dNode'])
-const NEEDS_FLAT        = new Set(['denseNode', 'outputNode', 'rnnNode', 'lstmNode', 'gruNode', 'transformerEncoderNode', 'conv1dNode'])
+const SPATIAL_PRODUCERS = new Set(['inputNode', 'conv2dNode', 'conv1dNode', 'maxPool2dNode', 'avgPool2dNode', 'convTranspose2dNode', 'upsampleNode'])
+const FLAT_PRODUCERS    = new Set(['denseNode', 'flattenNode', 'adaptiveAvgPool2dNode', 'rnnNode', 'lstmNode', 'gruNode', 'transformerEncoderNode', 'embeddingNode', 'feedForwardNode', 'multiHeadAttentionNode', 'positionalEncodingNode', 'backboneNode', 'reshapeNode'])
+const PASSTHROUGH       = new Set(['dropoutNode', 'batchNormNode', 'activationNode', 'gaussianNoiseNode', 'layerNormNode', 'addNode', 'multiplyNode'])
+const NEEDS_SPATIAL     = new Set(['conv2dNode', 'maxPool2dNode', 'avgPool2dNode', 'convTranspose2dNode', 'upsampleNode'])
+const NEEDS_FLAT        = new Set(['denseNode', 'outputNode', 'rnnNode', 'lstmNode', 'gruNode', 'transformerEncoderNode', 'conv1dNode', 'embeddingNode', 'feedForwardNode', 'multiHeadAttentionNode', 'positionalEncodingNode', 'layerNormNode'])
+const MERGE_BINARY      = new Set(['addNode', 'multiplyNode'])
 
 function inferTensorKinds(nodes: AppNode[], edges: AppEdge[]): Map<string, TensorKind> {
   const sorted = topologicalSort(nodes, edges)
@@ -120,6 +121,47 @@ function inferShapes(nodes: AppNode[], edges: AppEdge[]): Map<string, Shape> {
       const ic = p0?.kind === 'spatial' ? p0.channels : 1
       const sz = Number(d.outputSize ?? 1)
       shapes.set(nid, sz === 1 ? { kind: 'flat', features: ic } : { kind: 'spatial', channels: ic, height: sz, width: sz })
+    } else if (type === 'convTranspose2dNode') {
+      const ih = p0?.kind === 'spatial' ? p0.height : 1
+      const iw = p0?.kind === 'spatial' ? p0.width : 1
+      const outC = Number(d.outChannels ?? 32)
+      const k = Number(d.kernelSize ?? 2), s = Number(d.stride ?? 2), pad = Number(d.padding ?? 0)
+      const outPad = Number(d.outputPadding ?? 0)
+      shapes.set(nid, { kind: 'spatial', channels: outC, height: (ih - 1) * s - 2 * pad + k + outPad, width: (iw - 1) * s - 2 * pad + k + outPad })
+    } else if (type === 'upsampleNode') {
+      const ic = p0?.kind === 'spatial' ? p0.channels : 1
+      const ih = p0?.kind === 'spatial' ? p0.height : 1
+      const iw = p0?.kind === 'spatial' ? p0.width : 1
+      const sf = Number(d.scaleFactor ?? 2)
+      shapes.set(nid, { kind: 'spatial', channels: ic, height: Math.floor(ih * sf), width: Math.floor(iw * sf) })
+    } else if (type === 'backboneNode') {
+      const feats: Record<string, number> = { resnet18: 512, resnet34: 512, resnet50: 2048, mobilenet_v2: 1280, efficientnet_b0: 1280, vgg16: 4096 }
+      shapes.set(nid, { kind: 'flat', features: feats[String(d.model ?? 'resnet18')] ?? 512 })
+    } else if (type === 'reshapeNode') {
+      const target = Number(d.targetFeatures ?? -1)
+      shapes.set(nid, target === -1 && p0 ? p0 : { kind: 'flat', features: target })
+    } else if (type === 'embeddingNode') {
+      const embDim = Number(d.embeddingDim ?? 128)
+      const seqLen = p0 ? flatF(p0) : 1
+      shapes.set(nid, { kind: 'flat', features: seqLen * embDim })
+    } else if (type === 'positionalEncodingNode') {
+      shapes.set(nid, { kind: 'flat', features: Number(d.dModel ?? 256) })
+    } else if (type === 'feedForwardNode') {
+      shapes.set(nid, { kind: 'flat', features: Number(d.dModel ?? 256) })
+    } else if (type === 'multiHeadAttentionNode') {
+      shapes.set(nid, { kind: 'flat', features: Number(d.embedDim ?? 256) })
+    } else if (type === 'concatenateNode') {
+      const pShapes = ps.map((pid) => shapes.get(pid)).filter(Boolean) as Shape[]
+      if (pShapes.every((s) => s.kind === 'flat')) {
+        shapes.set(nid, { kind: 'flat', features: pShapes.reduce((acc, s) => acc + flatF(s), 0) })
+      } else if (pShapes.length > 0 && pShapes.every((s) => s.kind === 'spatial')) {
+        const ref = pShapes[0] as SpatShape
+        shapes.set(nid, { kind: 'spatial', channels: pShapes.reduce((acc, s) => acc + (s as SpatShape).channels, 0), height: ref.height, width: ref.width })
+      } else if (p0) {
+        shapes.set(nid, p0)
+      }
+    } else if (type === 'addNode' || type === 'multiplyNode') {
+      if (p0) shapes.set(nid, p0)
     }
   }
   return shapes
@@ -134,6 +176,11 @@ function nodeLabel(type: string, data: Record<string, unknown>): string {
     flattenNode: 'Flatten', dropoutNode: 'Dropout', batchNormNode: 'BatchNorm',
     activationNode: 'Activation', rnnNode: 'RNN', lstmNode: 'LSTM', gruNode: 'GRU',
     transformerEncoderNode: 'TransformerEncoder', adaptiveAvgPool2dNode: 'AdaptiveAvgPool2d',
+    gaussianNoiseNode: 'Gaussian Noise', reshapeNode: 'Reshape', layerNormNode: 'Layer Norm',
+    embeddingNode: 'Embedding', positionalEncodingNode: 'Positional Encoding',
+    feedForwardNode: 'Feed Forward', multiHeadAttentionNode: 'Multi-Head Attention',
+    concatenateNode: 'Concatenate', addNode: 'Add', multiplyNode: 'Multiply',
+    convTranspose2dNode: 'ConvTranspose2d', upsampleNode: 'Upsample', backboneNode: 'Backbone',
   }
   return (typeof data.label === 'string' && data.label) ? data.label : (labels[type] ?? type)
 }
@@ -319,6 +366,52 @@ export function validateGraph(
         issues.push({ nodeId: nid, severity: 'error', category: 'config',
           message: `"${label}" dropout probability ${p} is out of range.`,
           hint: 'Set p to a value in [0, 1).' })
+      }
+    }
+
+    if (type === 'concatenateNode' && incoming < 2) {
+      issues.push({ nodeId: nid, severity: 'error', category: 'structure',
+        message: `"${label}" requires at least 2 inputs.`,
+        hint: 'Connect two or more layers to this Concatenate node.' })
+    }
+
+    if (MERGE_BINARY.has(type)) {
+      const handles = new Set(edges.filter((e) => e.target === nid).map((e) => e.targetHandle ?? ''))
+      if (!handles.has('in_a') || !handles.has('in_b')) {
+        issues.push({ nodeId: nid, severity: 'error', category: 'structure',
+          message: `"${label}" requires connections to both inputs (A and B).`,
+          hint: 'Connect one layer to the top handle and another to the bottom handle.' })
+      }
+      if (ps.length >= 2) {
+        const s0 = shapes.get(ps[0])
+        const s1 = shapes.get(ps[1])
+        if (s0 && s1 && flatF(s0) !== flatF(s1)) {
+          issues.push({ nodeId: nid, severity: 'error', category: 'shape',
+            message: `"${label}" inputs have incompatible shapes.`,
+            hint: 'Both inputs must produce tensors with the same shape.' })
+        }
+      }
+    }
+
+    if (type === 'multiHeadAttentionNode') {
+      const embedDim = Number(data.embedDim ?? 256)
+      const numHeads = Number(data.numHeads ?? 8)
+      if (embedDim % numHeads !== 0) {
+        issues.push({ nodeId: nid, severity: 'error', category: 'config',
+          message: `"${label}" embed_dim (${embedDim}) must be divisible by num_heads (${numHeads}).`,
+          hint: 'Adjust embed_dim or num_heads so embed_dim % num_heads == 0.' })
+      }
+    }
+
+    if (type === 'feedForwardNode' || type === 'positionalEncodingNode') {
+      const dModel = Number(data.dModel ?? 256)
+      if (ps.length > 0) {
+        const inShape = shapes.get(ps[0])
+        if (inShape && inShape.kind === 'flat' && flatF(inShape) !== dModel) {
+          issues.push({ nodeId: nid, severity: 'warning', category: 'shape',
+            message: `"${label}" expects d_model=${dModel} but input has ${flatF(inShape)} features.`,
+            hint: `Add a Dense layer projecting to ${dModel} features before this node.` })
+        }
       }
     }
 

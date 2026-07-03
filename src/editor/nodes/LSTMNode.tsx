@@ -44,6 +44,7 @@ registerNode({
   label: 'LSTM',
   description: 'Long Short-Term Memory cell',
   category: 'recurrent',
+  paletteGroup: 'recurrent',
   defaultData: {
     label: 'LSTM',
     hiddenSize: 128,

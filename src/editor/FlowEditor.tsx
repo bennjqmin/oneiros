@@ -1,3 +1,4 @@
+import { t } from '../theme/tokens'
 import { useCallback, useRef } from 'react'
 import {
   ReactFlow,
@@ -11,13 +12,15 @@ import {
 import type { DragEvent } from 'react'
 import '@xyflow/react/dist/style.css'
 
+import { useThemeSync } from '../theme/useThemeSync'
 import './nodes/index'
-import { getXYFlowNodeTypes, getNodeDefinition } from './registry/nodeRegistry'
+import { getXYFlowNodeTypes, getNodeDefinition, resolvePaletteDrop } from './registry/nodeRegistry'
 import { useGraphStore } from '../store/useGraphStore'
 
 const nodeTypes = getXYFlowNodeTypes()
 
 function FlowEditorInner() {
+  useThemeSync()
   const containerRef = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
 
@@ -37,9 +40,16 @@ function FlowEditorInner() {
   const onDrop = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault()
-      const type = e.dataTransfer.getData('application/oneiros-node')
-      if (!type) return
+      const paletteKey = e.dataTransfer.getData('application/oneiros-palette')
+      const legacyType = e.dataTransfer.getData('application/oneiros-node')
+      const resolved = paletteKey
+        ? resolvePaletteDrop(paletteKey)
+        : legacyType
+          ? resolvePaletteDrop(legacyType)
+          : null
+      if (!resolved) return
 
+      const { type, defaultData } = resolved
       const def = getNodeDefinition(type)
       if (!def) return
 
@@ -49,7 +59,7 @@ function FlowEditorInner() {
         id: `${type}-${Date.now()}`,
         type,
         position,
-        data: { ...def.defaultData },
+        data: { ...def.defaultData, ...defaultData },
       })
     },
     [screenToFlowPosition, addNode]
@@ -69,7 +79,7 @@ function FlowEditorInner() {
         onDragOver={onDragOver}
         onDrop={onDrop}
         defaultEdgeOptions={{
-          style: { stroke: '#52525b', strokeWidth: 1.5 },
+          style: { stroke: t.flowEdge, strokeWidth: 1.5 },
           animated: false,
         }}
         proOptions={{ hideAttribution: true }}
@@ -81,7 +91,7 @@ function FlowEditorInner() {
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1}
-          color="#27272a"
+          color={t.borderDefault}
         />
         <Controls showInteractive={false} />
         <MiniMap
@@ -89,12 +99,12 @@ function FlowEditorInner() {
             const typeColors: Record<string, string> = {
               inputNode: '#3b82f6',
               denseNode: '#8b5cf6',
-              outputNode: '#10b981',
+              outputNode: t.success,
             }
-            return typeColors[n.type ?? ''] ?? '#3f3f46'
+            return typeColors[n.type ?? ''] ?? t.textDisabled
           }}
-          maskColor="rgba(9,9,11,0.7)"
-          style={{ background: '#18181b' }}
+          maskColor={t.flowMinimapMask}
+          style={{ background: t.flowControlsBg }}
         />
       </ReactFlow>
     </div>

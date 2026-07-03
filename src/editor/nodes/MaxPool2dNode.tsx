@@ -38,9 +38,10 @@ function MaxPool2dNode({ id, data, selected }: NodeProps<MaxPool2dNodeType>) {
 
 registerNode({
   type: 'maxPool2dNode',
-  label: 'MaxPool2d',
+  label: 'Max Pooling',
   description: '2D max pooling layer',
   category: 'layers',
+  paletteGroup: 'convolutional',
   defaultData: {
     label: 'MaxPool2d',
     kernelSize: 2,

@@ -43,6 +43,7 @@ registerNode({
   label: 'RNN',
   description: 'Elman recurrent neural network',
   category: 'recurrent',
+  paletteGroup: 'recurrent',
   defaultData: {
     label: 'RNN',
     hiddenSize: 128,

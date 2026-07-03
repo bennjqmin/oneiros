@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import { useCallback } from 'react'
 import {
   ReactFlow,
@@ -54,7 +55,7 @@ function EDFFlowInner() {
       nodeTypes={edfNodeTypes}
       fitView
       fitViewOptions={{ padding: 0.3 }}
-      style={{ background: '#09090b' }}
+      style={{ background: t.bgBase }}
     >
       <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#27272a" />
       <Controls style={{ bottom: 16, left: 16, top: 'unset' }} />
@@ -90,14 +91,14 @@ export function EDFPaletteItem({ def }: { def: EDFNodeDef }) {
         borderBottom: '1px solid #1a1a20',
         transition: 'background 0.1s',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = '#18181b' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = t.bgElevated }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: def.color, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, color: '#d4d4d8', fontWeight: 500 }}>{def.label}</span>
+        <span style={{ fontSize: 12, color: t.textBody, fontWeight: 500 }}>{def.label}</span>
       </div>
-      <span style={{ fontSize: 10, color: '#52525b', paddingLeft: 14 }}>{def.description}</span>
+      <span style={{ fontSize: 10, color: t.textFaint, paddingLeft: 14 }}>{def.description}</span>
     </div>
   )
 }

@@ -36,6 +36,7 @@ registerNode({
   label: 'Output',
   description: 'Terminal node — defines model output',
   category: 'output',
+  paletteGroup: 'basic',
   defaultData: {
     label: 'Output',
     name: 'output',

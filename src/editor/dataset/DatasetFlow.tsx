@@ -1,3 +1,4 @@
+import { t } from '../../theme/tokens'
 import { useCallback } from 'react'
 import {
   ReactFlow,
@@ -57,7 +58,7 @@ function DatasetFlowInner() {
         onConnect={onConnect}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        defaultEdgeOptions={{ style: { stroke: '#52525b', strokeWidth: 1.5 }, animated: false }}
+        defaultEdgeOptions={{ style: { stroke: t.textFaint, strokeWidth: 1.5 }, animated: false }}
         proOptions={{ hideAttribution: true }}
         fitView
         minZoom={0.3}
@@ -102,8 +103,8 @@ export function PipelinePaletteItem({ def }: { def: DatasetNodeDef }) {
         transition: 'background 0.1s, border-color 0.1s',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = '#18181b'
-        e.currentTarget.style.borderColor = '#27272a'
+        e.currentTarget.style.background = t.bgElevated
+        e.currentTarget.style.borderColor = t.borderDefault
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'transparent'
@@ -112,8 +113,8 @@ export function PipelinePaletteItem({ def }: { def: DatasetNodeDef }) {
     >
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: def.color, flexShrink: 0 }} />
       <div>
-        <div style={{ fontSize: 11, fontWeight: 500, color: '#d4d4d8', lineHeight: 1.3 }}>{def.label}</div>
-        <div style={{ fontSize: 10, color: '#52525b', lineHeight: 1.2 }}>{def.description}</div>
+        <div style={{ fontSize: 11, fontWeight: 500, color: t.textBody, lineHeight: 1.3 }}>{def.label}</div>
+        <div style={{ fontSize: 10, color: t.textFaint, lineHeight: 1.2 }}>{def.description}</div>
       </div>
     </div>
   )

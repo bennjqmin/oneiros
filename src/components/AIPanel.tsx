@@ -1,3 +1,4 @@
+import { t } from '../theme/tokens'
 import { useEffect, useRef, useState } from 'react'
 import { useAIStore } from '../store/useAIStore'
 import type { AIMessage } from '../types/ai'
@@ -69,8 +70,8 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
       top: 0, right: 0,
       width: mobile ? '100%' : 360,
       height: '100%',
-      background: '#0d0e14',
-      borderLeft: mobile ? 'none' : '1px solid #1e1e2e',
+      background: t.topbarBg,
+      borderLeft: mobile ? 'none' : `1px solid ${t.borderSubtle}`,
       display: 'flex',
       flexDirection: 'column',
       zIndex: 20,
@@ -82,12 +83,12 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
         display: 'flex',
         alignItems: 'center',
         padding: '0 14px',
-        borderBottom: '1px solid #1e1e2e',
+        borderBottom: `1px solid ${t.borderSubtle}`,
         gap: 8,
         flexShrink: 0,
       }}>
         <SparkleIcon />
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#e4e4e7' }}>AI Assistant</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>AI Assistant</span>
         <div style={{ flex: 1 }} />
         {messages.length > 0 && (
           <HeaderBtn onClick={clearMessages} title="Clear conversation">
@@ -104,11 +105,11 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
       {showSettings && (
         <div style={{
           padding: '12px 14px',
-          borderBottom: '1px solid #1e1e2e',
+          borderBottom: `1px solid ${t.borderSubtle}`,
           background: '#111116',
           flexShrink: 0,
         }}>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#52525b', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textFaint, marginBottom: 6 }}>
             OpenAI API Key
           </div>
           <input
@@ -118,8 +119,8 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
             placeholder="sk-…"
             onKeyDown={(e) => { if (e.key === 'Enter') saveKey() }}
             style={{
-              width: '100%', background: '#18181b', border: '1px solid #27272a',
-              borderRadius: 5, color: '#e4e4e7', fontSize: 12,
+              width: '100%', background: t.bgElevated, border: `1px solid ${t.borderDefault}`,
+              borderRadius: 5, color: t.textPrimary, fontSize: 12,
               padding: '5px 8px', outline: 'none', boxSizing: 'border-box', marginBottom: 6,
             }}
           />
@@ -128,27 +129,27 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
               value={model}
               onChange={(e) => setModel(e.target.value)}
               style={{
-                flex: 1, background: '#18181b', border: '1px solid #27272a',
-                borderRadius: 5, color: '#a1a1aa', fontSize: 11, padding: '4px 7px', outline: 'none',
+                flex: 1, background: t.bgElevated, border: `1px solid ${t.borderDefault}`,
+                borderRadius: 5, color: t.textSecondary, fontSize: 11, padding: '4px 7px', outline: 'none',
               }}
             >
-              <option value="gpt-4o" style={{ background: '#18181b' }}>gpt-4o</option>
-              <option value="gpt-4o-mini" style={{ background: '#18181b' }}>gpt-4o-mini</option>
-              <option value="gpt-4-turbo" style={{ background: '#18181b' }}>gpt-4-turbo</option>
-              <option value="gpt-3.5-turbo" style={{ background: '#18181b' }}>gpt-3.5-turbo</option>
+              <option value="gpt-4o" style={{ background: t.bgElevated }}>gpt-4o</option>
+              <option value="gpt-4o-mini" style={{ background: t.bgElevated }}>gpt-4o-mini</option>
+              <option value="gpt-4-turbo" style={{ background: t.bgElevated }}>gpt-4-turbo</option>
+              <option value="gpt-3.5-turbo" style={{ background: t.bgElevated }}>gpt-3.5-turbo</option>
             </select>
             <button
               onClick={saveKey}
               style={{
                 padding: '4px 12px', borderRadius: 5,
-                border: '1px solid #7c3aed', background: 'rgba(124,58,237,0.12)',
-                color: '#a78bfa', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                border: `1px solid ${t.accent}`, background: 'rgba(124,58,237,0.12)',
+                color: t.accentMuted, fontSize: 11, fontWeight: 600, cursor: 'pointer',
               }}
             >
               Save
             </button>
           </div>
-          <p style={{ fontSize: 10, color: '#3f3f46', margin: '6px 0 0', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 10, color: t.textDisabled, margin: '6px 0 0', lineHeight: 1.5 }}>
             Stored locally in your browser only. Never sent anywhere except OpenAI.
           </p>
         </div>
@@ -173,7 +174,7 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
       {messages.length === 0 && !showSettings && (
         <div style={{
           padding: '8px 12px',
-          borderTop: '1px solid #1e1e2e',
+          borderTop: `1px solid ${t.borderSubtle}`,
           display: 'flex',
           flexWrap: 'wrap',
           gap: 5,
@@ -185,12 +186,12 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
               onClick={() => handleQuickPrompt(q.prompt)}
               style={{
                 padding: '3px 9px', borderRadius: 12,
-                border: '1px solid #27272a', background: 'transparent',
-                color: '#71717a', fontSize: 10, cursor: 'pointer',
+                border: `1px solid ${t.borderDefault}`, background: 'transparent',
+                color: t.textMuted, fontSize: 10, cursor: 'pointer',
                 transition: 'border-color 0.1s, color 0.1s',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa'; e.currentTarget.style.borderColor = '#7c3aed' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#71717a'; e.currentTarget.style.borderColor = '#27272a' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = t.accentMuted; e.currentTarget.style.borderColor = t.accent }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.borderDefault }}
             >
               {q.label}
             </button>
@@ -201,7 +202,7 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
       {/* Input */}
       <div style={{
         padding: '10px 12px',
-        borderTop: '1px solid #1e1e2e',
+        borderTop: `1px solid ${t.borderSubtle}`,
         display: 'flex',
         gap: 8,
         alignItems: 'flex-end',
@@ -216,24 +217,24 @@ export default function AIPanel({ onClose, mobile }: AIPanelProps) {
           rows={1}
           style={{
             flex: 1,
-            background: '#18181b', border: '1px solid #27272a',
-            borderRadius: 8, color: '#e4e4e7',
+            background: t.bgElevated, border: `1px solid ${t.borderDefault}`,
+            borderRadius: 8, color: t.textPrimary,
             fontSize: 12, padding: '7px 10px', outline: 'none',
             resize: 'none', lineHeight: 1.5,
             maxHeight: 100, overflowY: 'auto',
             fontFamily: 'inherit',
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = '#7c3aed' }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = '#27272a' }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = t.accent }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = t.borderDefault }}
         />
         <button
           onClick={handleSend}
           disabled={isLoading || !input.trim()}
           style={{
             width: 34, height: 34, borderRadius: 8,
-            border: '1px solid #7c3aed',
+            border: `1px solid ${t.accent}`,
             background: isLoading || !input.trim() ? '#1a1a2e' : 'rgba(124,58,237,0.15)',
-            color: isLoading || !input.trim() ? '#3f3f46' : '#a78bfa',
+            color: isLoading || !input.trim() ? t.textDisabled : t.accentMuted,
             cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
@@ -267,11 +268,11 @@ function MessageBubble({ message }: { message: AIMessage }) {
         maxWidth: '92%',
         padding: '8px 11px',
         borderRadius: isUser ? '10px 10px 3px 10px' : '10px 10px 10px 3px',
-        background: isUser ? 'rgba(124,58,237,0.15)' : '#18181b',
-        border: `1px solid ${isUser ? '#7c3aed30' : '#27272a'}`,
+        background: isUser ? 'rgba(124,58,237,0.15)' : t.bgElevated,
+        border: `1px solid ${isUser ? '#7c3aed30' : t.borderDefault}`,
         fontSize: 12,
         lineHeight: 1.6,
-        color: '#d4d4d8',
+        color: t.textBody,
         wordBreak: 'break-word',
       }}>
         <MessageText content={message.content} />
@@ -281,7 +282,7 @@ function MessageBubble({ message }: { message: AIMessage }) {
         <div style={{
           maxWidth: '92%',
           background: '#111116',
-          border: '1px solid #27272a',
+          border: `1px solid ${t.borderDefault}`,
           borderRadius: 8,
           overflow: 'hidden',
         }}>
@@ -290,9 +291,9 @@ function MessageBubble({ message }: { message: AIMessage }) {
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            borderBottom: message.actionsApplied ? 'none' : '1px solid #1e1e2e',
+            borderBottom: message.actionsApplied ? 'none' : `1px solid ${t.borderSubtle}`,
           }}>
-            <span style={{ fontSize: 10, color: '#52525b' }}>
+            <span style={{ fontSize: 10, color: t.textFaint }}>
               {message.actions.length} graph {message.actions.length === 1 ? 'action' : 'actions'}
             </span>
             {message.actionsApplied ? (
@@ -303,9 +304,9 @@ function MessageBubble({ message }: { message: AIMessage }) {
                 style={{
                   marginLeft: 'auto',
                   padding: '2px 10px', borderRadius: 5,
-                  border: '1px solid #7c3aed',
+                  border: `1px solid ${t.accent}`,
                   background: 'rgba(124,58,237,0.12)',
-                  color: '#a78bfa', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                  color: t.accentMuted, fontSize: 10, fontWeight: 600, cursor: 'pointer',
                 }}
               >
                 Apply to graph
@@ -315,7 +316,7 @@ function MessageBubble({ message }: { message: AIMessage }) {
           {!message.actionsApplied && (
             <div style={{ padding: '5px 10px', maxHeight: 80, overflowY: 'auto' }}>
               {message.actions.map((a, i) => (
-                <div key={i} style={{ fontSize: 10, color: '#52525b', fontFamily: 'monospace' }}>
+                <div key={i} style={{ fontSize: 10, color: t.textFaint, fontFamily: 'monospace' }}>
                   {a.type === 'clear' && '⊘ clear graph'}
                   {a.type === 'addNode' && `+ ${a.nodeType} "${a.id}"`}
                   {a.type === 'connect' && `→ ${a.source} → ${a.target}`}
@@ -338,15 +339,15 @@ function ThinkingBubble() {
         gap: 5,
         padding: '7px 11px',
         borderRadius: '10px 10px 10px 3px',
-        background: '#18181b',
-        border: '1px solid #27272a',
+        background: t.bgElevated,
+        border: `1px solid ${t.borderDefault}`,
       }}>
         {[0, 1, 2].map((i) => (
           <span
             key={i}
             style={{
               width: 5, height: 5, borderRadius: '50%',
-              background: '#52525b',
+              background: t.textFaint,
               animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
             }}
           />
@@ -370,12 +371,12 @@ function MessageText({ content }: { content: string }) {
           const code = lines.slice(1).join('\n')
           return (
             <pre key={i} style={{
-              background: '#0d0e14', border: '1px solid #27272a',
+              background: t.topbarBg, border: `1px solid ${t.borderDefault}`,
               borderRadius: 5, padding: '6px 9px', margin: '4px 0',
               fontSize: 11, overflowX: 'auto', fontFamily: 'monospace',
               color: '#a5b4fc', whiteSpace: 'pre-wrap',
             }}>
-              {lang && <div style={{ color: '#52525b', marginBottom: 3, fontSize: 10 }}>{lang}</div>}
+              {lang && <div style={{ color: t.textFaint, marginBottom: 3, fontSize: 10 }}>{lang}</div>}
               {code}
             </pre>
           )
@@ -396,7 +397,7 @@ function renderInline(text: string): React.ReactNode[] {
     if (p.startsWith('`') && p.endsWith('`')) {
       return (
         <code key={i} style={{
-          background: '#0d0e14', borderRadius: 3, padding: '1px 4px',
+          background: t.topbarBg, borderRadius: 3, padding: '1px 4px',
           fontSize: 11, fontFamily: 'monospace', color: '#a5b4fc',
         }}>
           {p.slice(1, -1)}
@@ -415,19 +416,19 @@ function EmptyState({ onQuickPrompt }: { onQuickPrompt: (p: string) => void }) {
       flex: 1, padding: '24px 16px',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
     }}>
-      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(124,58,237,0.12)', border: '1px solid #7c3aed30', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed' }}>
+      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(124,58,237,0.12)', border: '1px solid #7c3aed30', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.accent }}>
         <SparkleIcon size={20} />
       </div>
       <div style={{ textAlign: 'center' }}>
-        <p style={{ fontSize: 13, color: '#a1a1aa', margin: '0 0 5px', fontWeight: 500 }}>
+        <p style={{ fontSize: 13, color: t.textSecondary, margin: '0 0 5px', fontWeight: 500 }}>
           AI Architecture Assistant
         </p>
-        <p style={{ fontSize: 11, color: '#52525b', margin: 0, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11, color: t.textFaint, margin: 0, lineHeight: 1.6 }}>
           Describe a model, ask for architecture advice,<br />or get help debugging your graph.
         </p>
       </div>
-      <div style={{ width: '100%', borderTop: '1px solid #1e1e2e', paddingTop: 12 }}>
-        <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#3f3f46', marginBottom: 8 }}>
+      <div style={{ width: '100%', borderTop: `1px solid ${t.borderSubtle}`, paddingTop: 12 }}>
+        <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textDisabled, marginBottom: 8 }}>
           Quick start
         </p>
         {QUICK_PROMPTS.map((q) => (
@@ -437,12 +438,12 @@ function EmptyState({ onQuickPrompt }: { onQuickPrompt: (p: string) => void }) {
             style={{
               width: '100%', textAlign: 'left',
               padding: '6px 10px', borderRadius: 6, marginBottom: 4,
-              border: '1px solid #1e1e2e', background: 'transparent',
-              color: '#71717a', fontSize: 11, cursor: 'pointer',
+              border: `1px solid ${t.borderSubtle}`, background: 'transparent',
+              color: t.textMuted, fontSize: 11, cursor: 'pointer',
               transition: 'background 0.1s, color 0.1s',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = '#18181b'; e.currentTarget.style.color = '#e4e4e7' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#71717a' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = t.bgElevated; e.currentTarget.style.color = t.textPrimary }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted }}
           >
             {q.label}
           </button>
@@ -499,13 +500,13 @@ function HeaderBtn({ onClick, title, active, children }: { onClick: () => void; 
         width: 28, height: 28,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 6, border: 'none',
-        background: active ? '#27272a' : 'transparent',
-        color: active ? '#e4e4e7' : '#52525b',
+        background: active ? t.borderDefault : 'transparent',
+        color: active ? t.textPrimary : t.textFaint,
         cursor: 'pointer', fontSize: 16, lineHeight: 1,
         transition: 'background 0.1s, color 0.1s',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = '#27272a'; e.currentTarget.style.color = '#e4e4e7' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = active ? '#27272a' : 'transparent'; e.currentTarget.style.color = active ? '#e4e4e7' : '#52525b' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = t.borderDefault; e.currentTarget.style.color = t.textPrimary }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = active ? t.borderDefault : 'transparent'; e.currentTarget.style.color = active ? t.textPrimary : t.textFaint }}
     >
       {children}
     </button>
