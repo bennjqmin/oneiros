@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="src/assets/logo.png" alt="Oneiros logo" width="120" />
-</p>
-
 # Oneiros
 
 Oneiros is a visual machine learning IDE. Build neural networks on a node canvas, preprocess tabular and image datasets, train models (PyTorch or XGBoost), and export results — all from the browser.

@@ -1,9 +1,23 @@
 import { create } from 'zustand'
 
-export type ThemeId = 'dark' | 'light' | 'midnight' | 'system'
-export type ResolvedTheme = 'dark' | 'light' | 'midnight'
+export const THEME_IDS = [
+  'dark',
+  'light',
+  'midnight',
+  'gruvbox',
+  'nord',
+  'noire',
+  'system',
+] as const
+
+export type ThemeId = (typeof THEME_IDS)[number]
+export type ResolvedTheme = Exclude<ThemeId, 'system'>
 
 const STORAGE_KEY = 'oneiros-theme'
+
+function isThemeId(value: string | null): value is ThemeId {
+  return value !== null && (THEME_IDS as readonly string[]).includes(value)
+}
 
 function getSystemTheme(): 'dark' | 'light' {
   if (typeof window === 'undefined') return 'dark'
@@ -77,7 +91,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     let saved: ThemeId = 'dark'
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw === 'dark' || raw === 'light' || raw === 'midnight' || raw === 'system') {
+      if (isThemeId(raw)) {
         saved = raw
       }
     } catch {

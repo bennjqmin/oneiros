@@ -1,4 +1,6 @@
-import logoUrl from '../assets/logo.png'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faMoon } from '@fortawesome/free-solid-svg-icons'
+import { t } from '../theme/tokens'
 
 interface AppLogoProps {
   size?: number
@@ -6,12 +8,15 @@ interface AppLogoProps {
 
 export function AppLogo({ size = 24 }: AppLogoProps) {
   return (
-    <img
-      src={logoUrl}
-      alt="Oneiros"
-      width={size}
-      height={size}
-      style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+    <FontAwesomeIcon
+      icon={faMoon}
+      aria-hidden
+      style={{
+        fontSize: size,
+        color: t.accentMuted,
+        display: 'block',
+        flexShrink: 0,
+      }}
     />
   )
 }

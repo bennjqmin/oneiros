@@ -7,6 +7,9 @@ const THEMES: { id: ThemeId; label: string }[] = [
   { id: 'dark', label: 'Dark' },
   { id: 'light', label: 'Light' },
   { id: 'midnight', label: 'Midnight' },
+  { id: 'gruvbox', label: 'Gruvbox' },
+  { id: 'nord', label: 'Nord' },
+  { id: 'noire', label: 'Black Noire' },
   { id: 'system', label: 'System' },
 ]
 
@@ -108,6 +111,8 @@ export default function ThemeSwitcher() {
             top: menuPos.top,
             right: menuPos.right,
             minWidth: 140,
+            maxHeight: 320,
+            overflowY: 'auto',
             background: t.bgElevated,
             border: `1px solid ${t.borderDefault}`,
             borderRadius: 8,

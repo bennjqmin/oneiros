@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&display=swap" rel="stylesheet" />
@@ -12,10 +12,11 @@
       (function () {
         var key = 'oneiros-theme';
         var saved = localStorage.getItem(key) || 'dark';
+        var valid = ['dark', 'light', 'midnight', 'gruvbox', 'nord', 'noire', 'system'];
+        if (valid.indexOf(saved) === -1) saved = 'dark';
         var resolved = saved === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : saved;
-        if (resolved !== 'dark' && resolved !== 'light' && resolved !== 'midnight') resolved = 'dark';
         document.documentElement.dataset.theme = resolved;
         document.documentElement.style.colorScheme = resolved === 'light' ? 'light' : 'dark';
       })();
