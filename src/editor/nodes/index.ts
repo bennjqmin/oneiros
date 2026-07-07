@@ -33,6 +33,7 @@ import './ActivationNode'
 import './ConvTranspose2dNode'
 import './UpsampleNode'
 import './BackboneNode'
+import './HFModelNode'
 
 // Utility / Transformer building blocks
 import './GaussianNoiseNode'

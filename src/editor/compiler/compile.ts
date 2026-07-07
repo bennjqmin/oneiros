@@ -227,6 +227,17 @@ export function compileGraph(
       void pretrained
       varNames.set(node.id, varName)
 
+    // ── Hugging Face model ────────────────────────────────────────────────────
+    } else if (type === 'hfModelNode') {
+      const modelId = (node.data.modelId as string | undefined) ?? ''
+      const numF = Number(node.data.outputFeatures ?? 768)
+      initLines.push(`        # hf_${sid}: ${modelId || 'huggingface model'} → ${numF} features`)
+      initLines.push(`        self.hf_${sid} = _build_hf_${sid}(self)`)
+      const inp = resolveInputSingle(nodeParents, varNames)
+      const varName = `h_${sid}`
+      forwardLines.push(`        ${varName} = self.hf_${sid}(${inp})  # → (batch, ${numF})`)
+      varNames.set(node.id, varName)
+
     // ── Flatten ───────────────────────────────────────────────────────────────
     } else if (type === 'flattenNode') {
       const inShape = shapes.get(firstParent ?? '')

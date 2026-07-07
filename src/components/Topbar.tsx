@@ -89,7 +89,7 @@ function InspectorIcon() {
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
 
-export type AppView = 'model' | 'dataset'
+export type AppView = 'model' | 'dataset' | 'huggingface'
 
 interface TopbarProps {
   view: AppView
@@ -242,6 +242,7 @@ export default function Topbar({
       <div style={{ display: 'flex', gap: 2, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 6, padding: 2, flexShrink: 0 }}>
         <ViewTab active={view === 'model'} onClick={() => onViewChange('model')} label={isMobile ? 'Model' : 'Model'} compact={isMobile} />
         <ViewTab active={view === 'dataset'} onClick={() => onViewChange('dataset')} label={isMobile ? 'Data' : 'Dataset'} compact={isMobile} />
+        <ViewTab active={view === 'huggingface'} onClick={() => onViewChange('huggingface')} label={isMobile ? 'HF' : 'Hugging Face'} compact={isMobile} />
       </div>
 
       {isMobile && view === 'model' && (

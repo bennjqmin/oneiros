@@ -164,6 +164,10 @@ def infer_shapes(sorted_nodes: list[dict], edges: list[dict]) -> dict[str, NodeS
                                "mobilenet_v2": 1280, "efficientnet_b0": 1280, "vgg16": 4096}
             shapes[nid] = FlatShape(features=_BACKBONE_FEATS.get(model_name, 512))
 
+        elif ntype == "hfModelNode":
+            out_feats = int(data.get("outputFeatures", 0) or 0)
+            shapes[nid] = FlatShape(features=out_feats if out_feats > 0 else 768)
+
         elif ntype in ("dropoutNode", "batchNormNode", "activationNode", "gaussianNoiseNode", "layerNormNode"):
             if first_parent_shape:
                 shapes[nid] = first_parent_shape
@@ -379,6 +383,17 @@ class GraphModel(nn.Module):
                     else:
                         out = backbone(inp)
                 var[op.node_id] = out
+
+            elif op.kind == "hf_model":
+                inp = self._single(var, op.input_node_ids, x)
+                wrapper = getattr(self, op.layer_attr)  # type: ignore[arg-type]
+                try:
+                    var[op.node_id] = wrapper(inp)
+                except RuntimeError:
+                    raise
+                except Exception as exc:
+                    model_id = op.extra.get("model_id", "unknown")
+                    raise RuntimeError(f"Hugging Face forward failed for '{model_id}': {exc}") from exc
 
             elif op.kind == "output":
                 inp = self._gather(var, op.input_node_ids, x)
@@ -614,6 +629,31 @@ def build_model(graph: dict) -> tuple[GraphModel, list[str]]:
             ops.append(Op(kind="backbone", node_id=nid, layer_attr=attr,
                           input_node_ids=node_parents,
                           extra={"out_layer": out_layer}))
+
+        elif ntype == "hfModelNode":
+            model_id = str(data.get("modelId", "")).strip()
+            if not model_id:
+                raise ValueError("Hugging Face node requires a modelId — import and validate a model in the Hugging Face tab.")
+            pooling = str(data.get("pooling", "mean"))
+            freeze = bool(data.get("freeze", False))
+            trust_remote_code = bool(data.get("trustRemoteCode", False))
+            attr = f"hf_{safe_id}"
+            from hf_hub import build_hf_wrapper
+            try:
+                wrapper = build_hf_wrapper(
+                    model_id,
+                    pooling=pooling,
+                    freeze=freeze,
+                    trust_remote_code=trust_remote_code,
+                )
+                setattr(model, attr, wrapper)
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                raise RuntimeError(f"Failed to load Hugging Face model '{model_id}': {exc}") from exc
+            ops.append(Op(kind="hf_model", node_id=nid, layer_attr=attr,
+                          input_node_ids=node_parents,
+                          extra={"model_id": model_id, "pooling": pooling}))
 
         elif ntype == "dropoutNode":
             attr = f"drop_{safe_id}"

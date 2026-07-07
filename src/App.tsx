@@ -9,6 +9,7 @@ import CodePanel, { type CodeMode } from './components/CodePanel'
 import TrainingPanel from './components/TrainingPanel'
 import AIPanel from './components/AIPanel'
 import DatasetPage from './pages/DatasetPage'
+import HuggingFacePage from './pages/HuggingFacePage'
 import ProjectsPage from './pages/ProjectsPage'
 import { useGraphStore } from './store/useGraphStore'
 import { useProjectStore } from './store/useProjectStore'
@@ -84,6 +85,10 @@ export default function App() {
       setInspectorOpen(false)
     }
   }, [view])
+
+  function switchToModelView() {
+    handleViewChange('model')
+  }
 
   // Auto-save to project store on graph change
   useEffect(() => {
@@ -202,6 +207,22 @@ export default function App() {
           {codePanel?.mode === 'pipeline' && (
             <CodePanel mode="pipeline" onClose={closeCode} mobile={isMobile} />
           )}
+        </div>
+
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: view === 'huggingface' ? 'flex' : 'none',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          zIndex: view === 'huggingface' ? 2 : 0,
+          minHeight: 0,
+        }}>
+          <HuggingFacePage
+            mobile={isMobile}
+            active={view === 'huggingface'}
+            onSwitchToModel={switchToModelView}
+          />
         </div>
 
         {pendingView && (

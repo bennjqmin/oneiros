@@ -45,6 +45,7 @@ from edf_processor import (
     generate_edf_plot,
     EDF_STEP_META,
 )
+from hf_hub import hf_status, hf_search, hf_model_info, hf_validate_model
 from cv_dataset import (
     load_image_folder,
     make_image_loaders,
@@ -270,7 +271,12 @@ async def xgboost_export(run_id: str) -> StreamingResponse:
 @app.post("/api/compile")
 async def compile_graph(req: CompileRequest) -> dict:
     graph = {"nodes": req.nodes, "edges": req.edges}
-    _model, errors = build_model(graph)
+    try:
+        _model, errors = build_model(graph)
+    except (RuntimeError, ValueError) as exc:
+        return {"success": False, "errors": [str(exc)]}
+    except Exception as exc:
+        return {"success": False, "errors": [f"Failed to build model: {exc}"]}
     if errors:
         return {"success": False, "errors": errors}
     return {"success": True, "errors": []}
@@ -406,7 +412,16 @@ async def training_websocket(websocket: WebSocket, run_id: str) -> None:
         return
 
     # Build model
-    model, errors = build_model(req.graph)
+    try:
+        model, errors = build_model(req.graph)
+    except (RuntimeError, ValueError) as exc:
+        await websocket.send_json({"type": "error", "message": str(exc)})
+        await websocket.close()
+        return
+    except Exception as exc:
+        await websocket.send_json({"type": "error", "message": f"Failed to build model: {exc}"})
+        await websocket.close()
+        return
     if errors:
         await websocket.send_json({"type": "error", "message": "; ".join(errors)})
         await websocket.close()
@@ -632,6 +647,56 @@ async def edf_plot(request: Request) -> StreamingResponse:
         media_type="image/png",
         headers={"Cache-Control": "no-store"},
     )
+
+
+# ── Hugging Face endpoints ────────────────────────────────────────────────────
+
+@app.get("/api/hf/status")
+async def huggingface_status() -> dict:
+    """Check whether transformers / huggingface_hub are available."""
+    return hf_status()
+
+
+@app.get("/api/hf/search")
+async def huggingface_search(q: str = "", limit: int = 20) -> dict:
+    from fastapi.responses import JSONResponse
+    result = hf_search(q, limit=limit)
+    if "error" in result and "models" not in result:
+        code = 503 if "not installed" in result["error"].lower() else 400
+        return JSONResponse(result, status_code=code)
+    return result
+
+
+@app.get("/api/hf/model-info")
+async def huggingface_model_info(model_id: str = "") -> dict:
+    from fastapi.responses import JSONResponse
+    result = hf_model_info(model_id)
+    if "error" in result:
+        code = 404 if "not found" in result["error"].lower() else 403 if result.get("gated") else 400
+        return JSONResponse(result, status_code=code)
+    return result
+
+
+class HFValidateRequest(BaseModel):
+    modelId: str
+    trustRemoteCode: bool = False
+    token: str | None = None
+
+
+@app.post("/api/hf/validate")
+async def huggingface_validate(body: HFValidateRequest) -> dict:
+    from fastapi.responses import JSONResponse
+    if body.token:
+        os.environ["HF_TOKEN"] = body.token.strip()
+    result = hf_validate_model(
+        body.modelId,
+        trust_remote_code=body.trustRemoteCode,
+        token=body.token,
+    )
+    if not result.get("valid"):
+        code = 403 if result.get("gated") else 422
+        return JSONResponse(result, status_code=code)
+    return result
 
 
 # ── Computer Vision endpoints ─────────────────────────────────────────────────

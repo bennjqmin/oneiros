@@ -32,7 +32,7 @@ function detectCycles(nodes: AppNode[], edges: AppEdge[]): Set<string> {
 type TensorKind = 'spatial' | 'flat' | 'unknown'
 
 const SPATIAL_PRODUCERS = new Set(['inputNode', 'conv2dNode', 'conv1dNode', 'maxPool2dNode', 'avgPool2dNode', 'convTranspose2dNode', 'upsampleNode'])
-const FLAT_PRODUCERS    = new Set(['denseNode', 'flattenNode', 'adaptiveAvgPool2dNode', 'rnnNode', 'lstmNode', 'gruNode', 'transformerEncoderNode', 'embeddingNode', 'feedForwardNode', 'multiHeadAttentionNode', 'positionalEncodingNode', 'backboneNode', 'reshapeNode'])
+const FLAT_PRODUCERS    = new Set(['denseNode', 'flattenNode', 'adaptiveAvgPool2dNode', 'rnnNode', 'lstmNode', 'gruNode', 'transformerEncoderNode', 'embeddingNode', 'feedForwardNode', 'multiHeadAttentionNode', 'positionalEncodingNode', 'backboneNode', 'hfModelNode', 'reshapeNode'])
 const PASSTHROUGH       = new Set(['dropoutNode', 'batchNormNode', 'activationNode', 'gaussianNoiseNode', 'layerNormNode', 'addNode', 'multiplyNode'])
 const NEEDS_SPATIAL     = new Set(['conv2dNode', 'maxPool2dNode', 'avgPool2dNode', 'convTranspose2dNode', 'upsampleNode'])
 const NEEDS_FLAT        = new Set(['denseNode', 'outputNode', 'rnnNode', 'lstmNode', 'gruNode', 'transformerEncoderNode', 'conv1dNode', 'embeddingNode', 'feedForwardNode', 'multiHeadAttentionNode', 'positionalEncodingNode', 'layerNormNode'])
@@ -137,6 +137,9 @@ function inferShapes(nodes: AppNode[], edges: AppEdge[]): Map<string, Shape> {
     } else if (type === 'backboneNode') {
       const feats: Record<string, number> = { resnet18: 512, resnet34: 512, resnet50: 2048, mobilenet_v2: 1280, efficientnet_b0: 1280, vgg16: 4096 }
       shapes.set(nid, { kind: 'flat', features: feats[String(d.model ?? 'resnet18')] ?? 512 })
+    } else if (type === 'hfModelNode') {
+      const outFeats = Number(d.outputFeatures ?? 0)
+      shapes.set(nid, { kind: 'flat', features: outFeats > 0 ? outFeats : 768 })
     } else if (type === 'reshapeNode') {
       const target = Number(d.targetFeatures ?? -1)
       shapes.set(nid, target === -1 && p0 ? p0 : { kind: 'flat', features: target })
@@ -180,7 +183,7 @@ function nodeLabel(type: string, data: Record<string, unknown>): string {
     embeddingNode: 'Embedding', positionalEncodingNode: 'Positional Encoding',
     feedForwardNode: 'Feed Forward', multiHeadAttentionNode: 'Multi-Head Attention',
     concatenateNode: 'Concatenate', addNode: 'Add', multiplyNode: 'Multiply',
-    convTranspose2dNode: 'ConvTranspose2d', upsampleNode: 'Upsample', backboneNode: 'Backbone',
+    convTranspose2dNode: 'ConvTranspose2d', upsampleNode: 'Upsample', backboneNode: 'Backbone', hfModelNode: 'HF Model',
   }
   return (typeof data.label === 'string' && data.label) ? data.label : (labels[type] ?? type)
 }
@@ -480,7 +483,34 @@ export function validateGraph(
       }
     }
 
-    // ── Output node ↔ dataset checks ──────────────────────────────────────
+    // ── Hugging Face model checks ─────────────────────────────────────────
+
+    if (type === 'hfModelNode') {
+      const modelId = String(data.modelId ?? '').trim()
+      const outputFeatures = Number(data.outputFeatures ?? 0)
+
+      if (!modelId) {
+        issues.push({ nodeId: nid, severity: 'error', category: 'config',
+          message: 'Hugging Face node has no model ID.',
+          hint: 'Open the Hugging Face tab, validate a model, and click “Add to canvas”.' })
+      }
+      if (outputFeatures <= 0) {
+        issues.push({ nodeId: nid, severity: 'error', category: 'config',
+          message: 'Hugging Face node output feature size is unknown.',
+          hint: 'Re-import the model from the Hugging Face tab so outputFeatures is set.' })
+      }
+
+      const modelKind = String(data.modelKind ?? 'generic')
+      const parentIds = parents.get(nid) ?? []
+      const parentNode = nodes.find(n => parentIds.includes(n.id))
+      const inputChannels = parentNode?.data?.channels as number | undefined
+
+      if (modelKind === 'vision' && inputChannels != null && inputChannels !== 3) {
+        issues.push({ nodeId: nid, severity: 'error', category: 'config',
+          message: `Vision HF model expects 3-channel RGB input but upstream has ${inputChannels} channels.`,
+          hint: 'Set channels=3 on the Input node (e.g. 224×224 for ViT).' })
+      }
+    }
 
     if (type === 'outputNode') {
       const classes = Number(data.classes ?? 10)

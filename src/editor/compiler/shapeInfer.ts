@@ -122,6 +122,11 @@ export function inferShapes(
       const model = (data.model as string | undefined) ?? 'resnet18'
       shapes.set(node.id, { kind: 'flat', features: feats[model] ?? 512 })
 
+    // ── Hugging Face model → flat feature vector ──────────────────────────────
+    } else if (type === 'hfModelNode') {
+      const outFeats = Number(data.outputFeatures ?? 0)
+      shapes.set(node.id, { kind: 'flat', features: outFeats > 0 ? outFeats : 768 })
+
     // ── Dropout / BatchNorm / Activation / GaussianNoise / LayerNorm (passthrough) ──
     } else if (type === 'dropoutNode' || type === 'batchNormNode' || type === 'activationNode'
       || type === 'gaussianNoiseNode' || type === 'layerNormNode') {
