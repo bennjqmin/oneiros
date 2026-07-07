@@ -16,7 +16,7 @@ export function useDeferredTabularValidation(
   targetColumn: string | null,
   pipelineNodes: AppNode[],
   pipelineEdges: AppEdge[],
-  config: Pick<TrainingConfig, 'xgbTask' | 'xgbNEstimators' | 'xgbEarlyStoppingRounds'>,
+  config: Pick<TrainingConfig, 'xgbTask' | 'xgbNEstimators' | 'xgbEarlyStoppingRounds' | 'xgbObjective'>,
 ) {
   const pipelineKey = useMemo(
     () => pipelineStructureKey(pipelineNodes, pipelineEdges),
@@ -65,6 +65,7 @@ export function useDeferredTabularValidation(
     config.xgbTask,
     config.xgbNEstimators,
     config.xgbEarlyStoppingRounds,
+    config.xgbObjective,
   ])
 
   return { issues, loading }

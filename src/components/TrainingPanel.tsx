@@ -12,6 +12,10 @@ import {
   BarChart,
   Bar,
   Cell,
+  ScatterChart,
+  Scatter,
+  ReferenceLine,
+  ZAxis,
 } from 'recharts'
 import { useTrainingStore } from '../store/useTrainingStore'
 import type { XGBResult } from '../store/useTrainingStore'
@@ -746,6 +750,27 @@ function parseTrainingError(raw: string): { title: string; detail: string; hint:
   if (raw.includes('at least 2 classes') || raw.includes('Classification requires')) {
     return { title: 'Classification Error', detail: raw, hint: 'Pick a target with multiple classes or switch Task to Regression.' }
   }
+  if (raw.includes('Pipeline crashed') || raw.includes('Pipeline execution crashed')) {
+    return { title: 'Pipeline Crash', detail: raw, hint: 'Reduce dataset size or remove one-hot / balance-classes steps.' }
+  }
+  if (raw.includes('serialize') || raw.includes('Serialized payload') || raw.includes('Failed to serialize')) {
+    return { title: 'Payload Too Large', detail: raw, hint: 'Filter rows/features — large payloads crash the browser silently.' }
+  }
+  if (raw.includes('Cannot reach backend') || raw.includes('Backend returned')) {
+    return { title: 'Backend Offline', detail: raw, hint: 'Run npm run dev:backend in a terminal.' }
+  }
+  if (raw.includes('Matrix too large') || raw.includes('Too many features') || raw.includes('Too many rows')) {
+    return { title: 'Dataset Too Large', detail: raw, hint: 'Filter rows or reduce features in Dataset → Pipeline.' }
+  }
+  if (raw.includes('greater than -1') || raw.includes('squaredlogerror') || raw.includes('rmsle')) {
+    return { title: 'Objective Error', detail: raw, hint: 'Use reg:squarederror for targets that can be negative, or shift targets above -1.' }
+  }
+  if (raw.includes('crashed unexpectedly') || raw.includes('native error')) {
+    return { title: 'Backend Crash', detail: raw, hint: 'Restart the backend (npm run dev:backend). Try fewer rows/trees or remove Balance Classes from the pipeline.' }
+  }
+  if (raw.includes('Dataset too large') || raw.includes('Too many features')) {
+    return { title: 'Dataset Too Large', detail: raw, hint: 'Filter rows or reduce features in the Dataset pipeline before training.' }
+  }
   if (raw.includes('Regression targets') || raw.includes('non-numeric target')) {
     return { title: 'Regression Error', detail: raw, hint: 'Use a numeric target column and set Task to Regression in the XGBoost panel.' }
   }
@@ -1018,18 +1043,57 @@ function XGBConfigForm({ config, onChange, onTrain, running, csvDatasetName, csv
 function XGBResults({ result }: { result: XGBResult }) {
   const chart = useChartTheme()
   const top10 = result.featureImportance.slice(0, 10)
+  const isRegression = result.task === 'regression'
   const showAccuracyChart =
-    result.task === 'classification' &&
+    !isRegression &&
     result.evals.some((e) => e.valAccuracy != null)
+  const showRmseChart =
+    isRegression &&
+    result.evals.some((e) => e.valRMSE != null)
+  const showMaeChart =
+    isRegression &&
+    result.evals.some((e) => e.valMAE != null)
+  const scatter = result.valScatter ?? []
+  const scatterDomain = scatter.length > 0
+    ? (() => {
+        const vals = scatter.flatMap((p) => [p.actual, p.predicted])
+        const lo = Math.min(...vals)
+        const hi = Math.max(...vals)
+        const pad = (hi - lo) * 0.05 || 1
+        return { lo: lo - pad, hi: hi + pad }
+      })()
+    : null
+  const residuals = scatter.map((p) => ({
+    predicted: p.predicted,
+    residual: p.actual - p.predicted,
+  }))
+  const lossTitle = isRegression
+    ? `Objective (${result.objective?.replace('reg:', '') ?? 'loss'}) per Round`
+    : 'Loss per Round'
+
+  const chartBox = (title: string, children: React.ReactNode) => (
+    <div style={{ flex: 1, minWidth: 220 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+        {title}
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        {children}
+      </ResponsiveContainer>
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: '10px 14px', gap: 10 }}>
       {/* Summary chips */}
       <div style={{ display: 'flex', gap: 16, flexShrink: 0, flexWrap: 'wrap' }}>
-        {result.task === 'regression' ? (
+        {isRegression ? (
           <>
             <MetricChip label="Val RMSE" value={result.valRMSE?.toFixed(4) ?? '–'} accent />
-            <MetricChip label="Val R²" value={result.valR2?.toFixed(4) ?? '–'} />
+            <MetricChip label="Val MAE" value={result.valMAE?.toFixed(4) ?? '–'} />
+            <MetricChip label="Val R²" value={result.valR2?.toFixed(4) ?? '–'} accent />
+            <MetricChip label="Train RMSE" value={result.trainRMSE?.toFixed(4) ?? '–'} />
+            <MetricChip label="Train MAE" value={result.trainMAE?.toFixed(4) ?? '–'} />
+            <MetricChip label="Train R²" value={result.trainR2?.toFixed(4) ?? '–'} />
           </>
         ) : (
           <>
@@ -1041,52 +1105,136 @@ function XGBResults({ result }: { result: XGBResult }) {
         <MetricChip label="Best Round" value={`${result.bestIteration} / ${result.nEstimators}`} />
       </div>
 
-      {/* Loss + accuracy curves */}
+      {/* Training curves */}
       {result.evals.length > 0 && (
         <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-              Loss per Round
-            </div>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
-                <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
-                <YAxis stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
-                <Tooltip contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }} labelStyle={{ color: t.textMuted }} />
-                <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
-                <Line type="monotone" dataKey="trainLoss" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Train" isAnimationActive={false} />
-                <Line type="monotone" dataKey="valLoss" stroke="#fbbf24" strokeWidth={1.5} dot={false} name="Val" isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {chartBox(lossTitle,
+            <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+              <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <YAxis stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <Tooltip contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }} labelStyle={{ color: t.textMuted }} />
+              <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
+              <Line type="monotone" dataKey="trainLoss" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Train" isAnimationActive={false} />
+              <Line type="monotone" dataKey="valLoss" stroke="#fbbf24" strokeWidth={1.5} dot={false} name="Val" isAnimationActive={false} />
+            </LineChart>,
+          )}
 
-          {showAccuracyChart && (
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-                Accuracy per Round
-              </div>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
-                  <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
-                  <YAxis
-                    stroke={chart.axisStroke}
-                    tick={{ fontSize: 9, fill: t.textFaint }}
-                    domain={[0, 1]}
-                    tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-                  />
-                  <Tooltip
-                    contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }}
-                    labelStyle={{ color: t.textMuted }}
-                    formatter={(v: unknown) => [`${((v as number) * 100).toFixed(1)}%`]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
-                  <Line type="monotone" dataKey="trainAccuracy" stroke="#10b981" strokeWidth={1.5} dot={false} name="Train" isAnimationActive={false} />
-                  <Line type="monotone" dataKey="valAccuracy" stroke="#34d399" strokeWidth={1.5} dot={false} name="Val" isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+          {showRmseChart && chartBox('RMSE per Round',
+            <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+              <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <YAxis stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <Tooltip contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }} labelStyle={{ color: t.textMuted }} />
+              <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
+              <Line type="monotone" dataKey="trainRMSE" stroke="#38bdf8" strokeWidth={1.5} dot={false} name="Train RMSE" isAnimationActive={false} />
+              <Line type="monotone" dataKey="valRMSE" stroke="#0ea5e9" strokeWidth={1.5} dot={false} name="Val RMSE" isAnimationActive={false} />
+            </LineChart>,
+          )}
+
+          {showMaeChart && chartBox('MAE per Round',
+            <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+              <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <YAxis stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <Tooltip contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }} labelStyle={{ color: t.textMuted }} />
+              <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
+              <Line type="monotone" dataKey="trainMAE" stroke="#a78bfa" strokeWidth={1.5} dot={false} name="Train MAE" isAnimationActive={false} />
+              <Line type="monotone" dataKey="valMAE" stroke="#8b5cf6" strokeWidth={1.5} dot={false} name="Val MAE" isAnimationActive={false} />
+            </LineChart>,
+          )}
+
+          {showAccuracyChart && chartBox('Accuracy per Round',
+            <LineChart data={result.evals} margin={{ top: 2, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+              <XAxis dataKey="round" stroke={chart.axisStroke} tick={{ fontSize: 9, fill: t.textFaint }} />
+              <YAxis
+                stroke={chart.axisStroke}
+                tick={{ fontSize: 9, fill: t.textFaint }}
+                domain={[0, 1]}
+                tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+              />
+              <Tooltip
+                contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }}
+                labelStyle={{ color: t.textMuted }}
+                formatter={(v: unknown) => [`${((v as number) * 100).toFixed(1)}%`]}
+              />
+              <Legend wrapperStyle={{ fontSize: 9, color: t.textMuted }} />
+              <Line type="monotone" dataKey="trainAccuracy" stroke="#10b981" strokeWidth={1.5} dot={false} name="Train" isAnimationActive={false} />
+              <Line type="monotone" dataKey="valAccuracy" stroke="#34d399" strokeWidth={1.5} dot={false} name="Val" isAnimationActive={false} />
+            </LineChart>,
+          )}
+        </div>
+      )}
+
+      {/* Regression diagnostics */}
+      {isRegression && scatter.length > 0 && scatterDomain && (
+        <div style={{ display: 'flex', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+          {chartBox('Predicted vs Actual (val)',
+            <ScatterChart margin={{ top: 2, right: 8, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+              <XAxis
+                type="number"
+                dataKey="actual"
+                name="Actual"
+                domain={[scatterDomain.lo, scatterDomain.hi]}
+                stroke={chart.axisStroke}
+                tick={{ fontSize: 9, fill: t.textFaint }}
+              />
+              <YAxis
+                type="number"
+                dataKey="predicted"
+                name="Predicted"
+                domain={[scatterDomain.lo, scatterDomain.hi]}
+                stroke={chart.axisStroke}
+                tick={{ fontSize: 9, fill: t.textFaint }}
+              />
+              <ZAxis range={[20, 20]} />
+              <Tooltip
+                cursor={{ strokeDasharray: '3 3' }}
+                contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }}
+                labelStyle={{ color: t.textMuted }}
+                formatter={(v: unknown) => [(v as number).toFixed(4)]}
+              />
+              <ReferenceLine
+                segment={[
+                  { x: scatterDomain.lo, y: scatterDomain.lo },
+                  { x: scatterDomain.hi, y: scatterDomain.hi },
+                ]}
+                stroke={t.textFaint}
+                strokeDasharray="4 4"
+              />
+              <Scatter data={scatter} fill="#38bdf8" fillOpacity={0.65} isAnimationActive={false} />
+            </ScatterChart>,
+          )}
+
+          {chartBox('Residuals (val)',
+            <ScatterChart margin={{ top: 2, right: 8, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.gridStroke} />
+              <XAxis
+                type="number"
+                dataKey="predicted"
+                name="Predicted"
+                stroke={chart.axisStroke}
+                tick={{ fontSize: 9, fill: t.textFaint }}
+              />
+              <YAxis
+                type="number"
+                dataKey="residual"
+                name="Residual"
+                stroke={chart.axisStroke}
+                tick={{ fontSize: 9, fill: t.textFaint }}
+              />
+              <ZAxis range={[20, 20]} />
+              <Tooltip
+                cursor={{ strokeDasharray: '3 3' }}
+                contentStyle={{ background: t.bgElevated, border: `1px solid ${t.borderDefault}`, fontSize: 11, borderRadius: 6 }}
+                labelStyle={{ color: t.textMuted }}
+                formatter={(v: unknown) => [(v as number).toFixed(4)]}
+              />
+              <ReferenceLine y={0} stroke={t.textFaint} strokeDasharray="4 4" />
+              <Scatter data={residuals} fill="#a78bfa" fillOpacity={0.65} isAnimationActive={false} />
+            </ScatterChart>,
           )}
         </div>
       )}

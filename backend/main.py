@@ -13,6 +13,11 @@ import os
 # without this can segfault ("Python quit unexpectedly") when XGBoost trains.
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("XGBOOST_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
 import asyncio
 import io
@@ -33,7 +38,7 @@ from datasets import get_loaders, get_dataset_info, list_datasets, make_custom_l
 from trainer import run_training_async
 from ai import chat as ai_chat
 from plotter import generate_plot, CHART_DEFS, PALETTES
-from xgboost_trainer import train_xgboost, REGRESSION_OBJECTIVES, _xgb_hint
+from xgboost_trainer import train_xgboost_subprocess, REGRESSION_OBJECTIVES, _xgb_hint
 from edf_processor import (
     load_edf,
     apply_edf_pipeline,
@@ -177,9 +182,20 @@ async def xgboost_train(request: Request) -> dict:
     """Train an XGBoost model and return metrics + feature importance."""
     from fastapi.responses import JSONResponse
     try:
-        body = await request.json()
-    except Exception as exc:
+        raw = await request.body()
+        if len(raw) > 64 * 1024 * 1024:
+            return JSONResponse(
+                {
+                    "error": f"Request body too large ({len(raw) // (1024 * 1024)} MB; max 64 MB).",
+                    "hint": "Reduce rows or features in the Dataset pipeline.",
+                },
+                status_code=413,
+            )
+        body = json.loads(raw)
+    except json.JSONDecodeError as exc:
         return JSONResponse({"error": f"Invalid JSON: {exc}"}, status_code=400)
+    except Exception as exc:
+        return JSONResponse({"error": f"Could not read request: {exc}"}, status_code=400)
 
     data   = body.get("data", {})
     config = body.get("config", {})
@@ -197,7 +213,12 @@ async def xgboost_train(request: Request) -> dict:
         )
 
     try:
-        result = train_xgboost(data, config)
+        result = train_xgboost_subprocess(data, config)
+    except TimeoutError as exc:
+        return JSONResponse(
+            {"error": str(exc), "hint": "Lower n_estimators or use a smaller dataset."},
+            status_code=504,
+        )
     except ValueError as exc:
         hint = _xgb_hint(exc)
         return JSONResponse({"error": str(exc), "hint": hint}, status_code=422)
@@ -206,6 +227,14 @@ async def xgboost_train(request: Request) -> dict:
         hint = _xgb_hint(exc)
         status = 503 if "not installed" in msg.lower() else 422
         return JSONResponse({"error": msg, "hint": hint}, status_code=status)
+    except MemoryError as exc:
+        return JSONResponse(
+            {
+                "error": f"Out of memory during training: {exc}",
+                "hint": "Use fewer rows, fewer features, or lower n_estimators.",
+            },
+            status_code=422,
+        )
     except Exception as exc:
         import traceback
         traceback.print_exc()

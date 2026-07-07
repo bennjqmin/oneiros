@@ -7,6 +7,11 @@
 import type { AppNode, AppEdge } from '../../types/graph'
 import type { LoadedDataset } from '../../store/useDatasetStore'
 import { parsePipelineNodes } from '../compiler/pipelineGraph'
+import {
+  TRAINING_LIMITS,
+  checkInputDatasetSize,
+  checkPipelineExpansion,
+} from './trainingPayloadLimits'
 
 // ── Output type ───────────────────────────────────────────────────────────────
 
@@ -124,9 +129,33 @@ export function executePipeline(
   pipelineEdges: AppEdge[],
   options?: { maxRows?: number; task?: 'classification' | 'regression' },
 ): PipelineResult {
+  try {
+    return executePipelineInner(dataset, targetColumn, pipelineNodes, pipelineEdges, options)
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    console.error('[Oneiros] Pipeline execution crashed:', err)
+    return {
+      ok: false,
+      error: `Pipeline crashed: ${detail}. Try fewer rows, simpler transforms, or remove one-hot on large categoricals.`,
+    }
+  }
+}
+
+function executePipelineInner(
+  dataset: LoadedDataset,
+  targetColumn: string,
+  pipelineNodes: AppNode[],
+  pipelineEdges: AppEdge[],
+  options?: { maxRows?: number; task?: 'classification' | 'regression' },
+): PipelineResult {
   if (!targetColumn) return { ok: false, error: 'No target column selected.' }
   if (!dataset.columns.find((c) => c.name === targetColumn)) {
     return { ok: false, error: `Target column "${targetColumn}" not found in dataset.` }
+  }
+
+  const inputCheck = checkInputDatasetSize(dataset)
+  if (!inputCheck.ok) {
+    return { ok: false, error: `${inputCheck.error} ${inputCheck.hint}` }
   }
 
   const fullRowCount = dataset.rows.length
@@ -178,6 +207,11 @@ export function executePipeline(
     return { ok: false, error: 'Dataset has too few rows after filtering/deduplication.' }
   }
 
+  const expansionCheck = checkPipelineExpansion(rows.length, targetColumn, rows, pc, dataset)
+  if (expansionCheck && !expansionCheck.ok) {
+    return { ok: false, error: `${expansionCheck.error} ${expansionCheck.hint}` }
+  }
+
   // Shuffle
   if (pc.shuffle) rows = seededShuffle(rows, pc.shuffleSeed)
 
@@ -200,8 +234,18 @@ export function executePipeline(
       : dataset.columns.filter((c) => c.type === 'string' && c.name !== targetColumn).map((c) => c.name)
     for (const colName of colsToEncode) {
       const uniq = [...new Set(rows.map((r) => String(r[colName])))]
+      if (uniq.length > TRAINING_LIMITS.maxFeatures) {
+        return {
+          ok: false,
+          error: `Column "${colName}" has ${uniq.length.toLocaleString()} unique values — too many for one-hot.`,
+        }
+      }
       const result = expandOneHot(rows, colName, uniq)
       rows = result.newRows
+      const postCheck = checkPipelineExpansion(rows.length, targetColumn, rows, { ...pc, oneHotEncode: false }, dataset)
+      if (postCheck && !postCheck.ok) {
+        return { ok: false, error: `${postCheck.error} ${postCheck.hint}` }
+      }
     }
   }
 
@@ -334,8 +378,8 @@ export function executePipeline(
     X = X.map((row) => row.filter((_, i) => keep.has(i)))
   }
 
-  // Balance classes (oversample minority)
-  if (pc.balanceClasses) {
+  // Balance classes (oversample minority) — classification only
+  if (pc.balanceClasses && task !== 'regression') {
     const classCounts = new Map<number, number[]>()
     y.forEach((cls, i) => { if (!classCounts.has(cls)) classCounts.set(cls, []); classCounts.get(cls)!.push(i) })
     const maxCount = Math.max(...[...classCounts.values()].map((v) => v.length))
@@ -364,6 +408,14 @@ export function executePipeline(
 
   if (X_val.length === 0) {
     return { ok: false, error: 'Validation set is empty. Lower the train ratio or add more data.' }
+  }
+
+  const cells = (X_train.length + X_val.length) * featureNames.length
+  if (cells > TRAINING_LIMITS.maxCells) {
+    return {
+      ok: false,
+      error: `Processed matrix is ${cells.toLocaleString()} cells (max ${TRAINING_LIMITS.maxCells.toLocaleString()}). Reduce rows or features.`,
+    }
   }
 
   const trainSamples =

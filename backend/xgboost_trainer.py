@@ -7,7 +7,10 @@ Returns metrics, feature importance, and serialised model bytes.
 from __future__ import annotations
 
 import base64
+import json
 import os
+import subprocess
+import sys
 import tempfile
 from typing import Any
 
@@ -59,7 +62,7 @@ def _feat_importance(model: Any, feature_names: list[str]) -> list[dict]:
 
 
 def _evals_history(model: Any, task: str = "classification") -> list[dict]:
-    """Extract per-round loss and (for classification) accuracy from evals_result_."""
+    """Extract per-round metrics from evals_result_."""
     evals: list[dict] = []
     if not hasattr(model, "evals_result_"):
         return evals
@@ -71,8 +74,12 @@ def _evals_history(model: Any, task: str = "classification") -> list[dict]:
     train_metrics = res[train_key]
     val_metrics = res[val_key]
 
+    if not train_metrics:
+        return evals
     loss_keys = ["logloss", "mlogloss", "rmse", "mae", "rmsle", "tweedie-nloglik@1.5"]
-    loss_key = next((k for k in loss_keys if k in train_metrics), list(train_metrics.keys())[0])
+    loss_key = next((k for k in loss_keys if k in train_metrics), next(iter(train_metrics.keys()), None))
+    if not loss_key:
+        return evals
 
     acc_keys = ["error", "merror"]
     acc_key = next((k for k in acc_keys if k in train_metrics), None)
@@ -87,8 +94,29 @@ def _evals_history(model: Any, task: str = "classification") -> list[dict]:
         if task == "classification" and acc_key:
             entry["trainAccuracy"] = round(1.0 - float(train_metrics[acc_key][i]), 6)
             entry["valAccuracy"] = round(1.0 - float(val_metrics[acc_key][i]), 6)
+        if task == "regression":
+            if "rmse" in train_metrics:
+                entry["trainRMSE"] = round(float(train_metrics["rmse"][i]), 6)
+                entry["valRMSE"] = round(float(val_metrics["rmse"][i]), 6)
+            if "mae" in train_metrics:
+                entry["trainMAE"] = round(float(train_metrics["mae"][i]), 6)
+                entry["valMAE"] = round(float(val_metrics["mae"][i]), 6)
         evals.append(entry)
     return evals
+
+
+def _sample_scatter(y_true: np.ndarray, y_pred: np.ndarray, max_points: int = 400) -> list[dict]:
+    n = len(y_true)
+    if n == 0:
+        return []
+    idx = np.linspace(0, n - 1, min(n, max_points), dtype=int)
+    return [
+        {
+            "actual": round(float(y_true[i]), 6),
+            "predicted": round(float(y_pred[i]), 6),
+        }
+        for i in idx
+    ]
 
 
 def _save_model(model: Any) -> str:
@@ -105,6 +133,33 @@ def _save_model(model: Any) -> str:
             os.unlink(path)
         except OSError:
             pass
+
+
+# Payload limits — keep in sync with src/editor/dataset/trainingPayloadLimits.ts
+_MAX_ROWS = 200_000
+_MAX_FEATURES = 2_000
+_MAX_CELLS = 20_000_000
+
+
+def _check_payload_size(X_train: np.ndarray, X_val: np.ndarray) -> None:
+    n_rows = int(X_train.shape[0] + X_val.shape[0])
+    n_feat = int(X_train.shape[1])
+    cells = n_rows * n_feat
+    if n_rows > _MAX_ROWS:
+        raise ValueError(
+            f"Too many rows ({n_rows:,}; max {_MAX_ROWS:,}). "
+            "Filter rows in the Dataset pipeline."
+        )
+    if n_feat > _MAX_FEATURES:
+        raise ValueError(
+            f"Too many features ({n_feat:,}; max {_MAX_FEATURES:,}). "
+            "Use Select K Best or drop columns."
+        )
+    if cells > _MAX_CELLS:
+        raise ValueError(
+            f"Matrix too large ({cells:,} cells; max {_MAX_CELLS:,}). "
+            "Reduce rows or features before training."
+        )
 
 
 def _validate_data(data: dict, task: str) -> None:
@@ -148,6 +203,8 @@ def _validate_data(data: dict, task: str) -> None:
             "Feature matrix contains NaN values. Add a Fill NaN step in the Dataset pipeline."
         )
 
+    _check_payload_size(X_train, X_val)
+
     if task == "regression":
         y_train = y_train.astype(np.float32)
         y_val = y_val.astype(np.float32)
@@ -161,8 +218,21 @@ def _validate_data(data: dict, task: str) -> None:
             raise ValueError("Classification requires at least 2 classes in train and validation labels.")
 
 
+def _validate_regression_objective(y_train: np.ndarray, y_val: np.ndarray, objective: str) -> None:
+    if objective == "reg:squaredlogerror":
+        all_y = np.concatenate([y_train, y_val])
+        if np.any(all_y <= -1):
+            raise ValueError(
+                "Squared log error (reg:squaredlogerror) requires all targets to be greater than -1."
+            )
+
+
 def _xgb_hint(exc: Exception) -> str:
     msg = str(exc).lower()
+    if "greater than -1" in msg or "rmsle" in msg or "squaredlogerror" in msg:
+        return "Use reg:squarederror for targets that can be negative, or shift targets above -1."
+    if "crashed" in msg or "native error" in msg:
+        return "Restart the backend and try fewer rows/trees. On macOS, keep the backend running after a crash."
     if "nan" in msg:
         return "Add a Fill NaN transform in Dataset → Pipeline."
     if "validation set is empty" in msg or "train ratio" in msg:
@@ -175,6 +245,8 @@ def _xgb_hint(exc: Exception) -> str:
         return "Use a numeric target column and set Task to Regression."
     if "early stopping" in msg or "n_estimators" in msg:
         return "Set early_stopping_rounds lower than n_estimators."
+    if "matrix too large" in msg or "too many rows" in msg or "too many features" in msg:
+        return "Filter rows or reduce features in Dataset → Pipeline."
     if "not installed" in msg:
         return "Run: pip install xgboost scikit-learn"
     return "Check your dataset, target column, and pipeline in the Dataset tab."
@@ -265,11 +337,12 @@ def _train_regression(data: dict, config: dict) -> dict[str, Any]:
     feature_names: list[str] = data.get("featureNames") or [f"f{i}" for i in range(X_train.shape[1])]
 
     obj = config.get("objective") or "reg:squarederror"
-    _, metric = _REG_OBJECTIVES.get(obj, ("", ["rmse"]))
+    _validate_regression_objective(y_train, y_val, obj)
 
     kw = _common_kwargs(config)
     kw["objective"]   = obj
-    kw["eval_metric"] = metric
+    # Track RMSE + MAE each round (regression analog of accuracy curves)
+    kw["eval_metric"] = ["rmse", "mae"]
 
     try:
         model = xgb.XGBRegressor(**kw)
@@ -285,6 +358,7 @@ def _train_regression(data: dict, config: dict) -> dict[str, Any]:
     train_mae  = float(mean_absolute_error(y_train, train_pred))
     val_mae    = float(mean_absolute_error(y_val,   val_pred))
     val_r2     = float(r2_score(y_val, val_pred))
+    train_r2   = float(r2_score(y_train, train_pred))
 
     best_iter = int(getattr(model, "best_iteration", kw["n_estimators"] - 1))
 
@@ -295,10 +369,65 @@ def _train_regression(data: dict, config: dict) -> dict[str, Any]:
         "valRMSE":           round(val_rmse,   6),
         "trainMAE":          round(train_mae,  6),
         "valMAE":            round(val_mae,    6),
+        "trainR2":           round(train_r2,   4),
         "valR2":             round(val_r2,     4),
         "bestIteration":     best_iter + 1,
         "nEstimators":       kw["n_estimators"],
         "featureImportance": _feat_importance(model, feature_names),
         "evals":             _evals_history(model, "regression"),
+        "valScatter":        _sample_scatter(y_val, val_pred),
         "modelB64":          _save_model(model),
     }
+
+
+def train_xgboost_subprocess(data: dict, config: dict, timeout: int = 3600) -> dict[str, Any]:
+    """
+    Train XGBoost in a child process so native crashes do not take down the API server.
+    PyTorch stays loaded in the parent; the worker only imports XGBoost/sklearn.
+    """
+    worker = os.path.join(os.path.dirname(__file__), "xgboost_worker.py")
+    payload = json.dumps({"data": data, "config": config})
+    env = os.environ.copy()
+    env.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+    env.setdefault("OMP_NUM_THREADS", "1")
+    env.setdefault("XGBOOST_NUM_THREADS", "1")
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, worker],
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError(f"XGBoost training exceeded {timeout} seconds.") from exc
+
+    stdout = (proc.stdout or "").strip()
+    if not stdout:
+        stderr = (proc.stderr or "").strip()
+        raise RuntimeError(
+            "XGBoost training crashed unexpectedly (native error). "
+            f"Worker exit code: {proc.returncode}. "
+            f"{stderr[:300]}".strip()
+            + " Try restarting the backend, lowering n_estimators, or using a smaller dataset."
+        )
+
+    try:
+        message = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"XGBoost worker returned invalid JSON: {stdout[:200]}") from exc
+
+    if message.get("ok"):
+        return message["result"]
+
+    err = message.get("error", "Unknown worker error")
+    err_type = message.get("type", "RuntimeError")
+    if err_type == "ValueError":
+        raise ValueError(err)
+    if err_type == "MemoryError":
+        raise MemoryError(err)
+    if err_type == "TimeoutError":
+        raise TimeoutError(err)
+    raise RuntimeError(err)

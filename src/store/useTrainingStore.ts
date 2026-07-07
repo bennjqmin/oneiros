@@ -12,6 +12,11 @@ import { TrainingSocket } from '../services/trainingSocket'
 import { useGraphStore } from './useGraphStore'
 import { useDatasetStore } from './useDatasetStore'
 import { executePipeline } from '../editor/dataset/pipelineExecutor'
+import {
+  pingTrainingBackend,
+  safeStringifyTrainingPayload,
+  validateProcessedDataset,
+} from '../editor/dataset/trainingPayloadLimits'
 import { validateGraph } from '../editor/validation/validateGraph'
 import { validateTabularTraining } from '../editor/validation/validateTabularTraining'
 import { deferWork } from '../utils/deferWork'
@@ -79,8 +84,10 @@ export interface XGBResult {
   valRMSE?: number
   trainMAE?: number
   valMAE?: number
+  trainR2?: number
   valR2?: number
   objective?: string
+  valScatter?: { actual: number; predicted: number }[]
   // Common
   bestIteration: number
   nEstimators: number
@@ -91,6 +98,10 @@ export interface XGBResult {
     valLoss: number
     trainAccuracy?: number
     valAccuracy?: number
+    trainRMSE?: number
+    valRMSE?: number
+    trainMAE?: number
+    valMAE?: number
   }[]
   runId: string
 }
@@ -258,14 +269,33 @@ export const useTrainingStore = create<TrainingState>((set, get) => ({
   async trainXGBoost() {
     const { config } = get()
 
+    const fail = (stage: string, error: string, hint?: string) => {
+      console.error(`[Oneiros XGB] Failed at "${stage}":`, error, hint ?? '')
+      const msg = hint ? `${error} — ${hint}` : error
+      set({
+        xgbStatus: 'error',
+        xgbStatusMessage: '',
+        xgbError: msg,
+      })
+    }
+
     set({
       xgbStatus: 'running',
-      xgbStatusMessage: 'Preparing pipeline…',
+      xgbStatusMessage: 'Checking backend…',
       xgbError: null,
       xgbResult: null,
       xgbPreflightIssues: [],
     })
 
+    await deferWork()
+
+    const backend = await pingTrainingBackend(API_BASE)
+    if (!backend.ok) {
+      fail('backend', backend.error, backend.hint)
+      return
+    }
+
+    set({ xgbStatusMessage: 'Validating dataset…' })
     await deferWork()
 
     const dsState = useDatasetStore.getState()
@@ -279,75 +309,130 @@ export const useTrainingStore = create<TrainingState>((set, get) => ({
         xgbTask: config.xgbTask,
         xgbNEstimators: config.xgbNEstimators,
         xgbEarlyStoppingRounds: config.xgbEarlyStoppingRounds,
+        xgbObjective: config.xgbObjective,
       },
     )
     set({ xgbPreflightIssues: issues })
 
     if (!isValid) {
       const errorCount = issues.filter((i) => i.severity === 'error').length
-      set({
-        xgbStatus: 'error',
-        xgbStatusMessage: '',
-        xgbError: `Fix ${errorCount} error${errorCount > 1 ? 's' : ''} before training XGBoost.`,
-      })
+      fail(
+        'validation',
+        `Fix ${errorCount} error${errorCount > 1 ? 's' : ''} before training XGBoost.`,
+        issues.find((i) => i.severity === 'error')?.hint,
+      )
       return
     }
 
     set({ xgbStatusMessage: 'Running pipeline on full dataset…' })
     await deferWork()
 
-    const result = executePipeline(
-      dsState.dataset!,
-      dsState.targetColumn!,
-      dsState.pipelineNodes,
-      dsState.pipelineEdges,
-      { task: config.xgbTask },
-    )
-    if (!result.ok) {
-      set({ xgbStatus: 'error', xgbStatusMessage: '', xgbError: result.error })
+    let result
+    try {
+      result = executePipeline(
+        dsState.dataset!,
+        dsState.targetColumn!,
+        dsState.pipelineNodes,
+        dsState.pipelineEdges,
+        { task: config.xgbTask },
+      )
+    } catch (err) {
+      fail(
+        'pipeline',
+        err instanceof Error ? err.message : 'Pipeline threw an unexpected error.',
+        'Try fewer rows or simpler pipeline steps.',
+      )
       return
     }
 
-    set({ xgbStatusMessage: 'Training XGBoost…' })
+    if (!result.ok) {
+      fail('pipeline', result.error, 'Review Dataset → Pipeline nodes and try again.')
+      return
+    }
+
+    set({ xgbStatusMessage: 'Checking payload size…' })
+    await deferWork()
+
+    const payloadCheck = validateProcessedDataset(result.data)
+    if (!payloadCheck.ok) {
+      fail('payload', payloadCheck.error, payloadCheck.hint)
+      return
+    }
+
+    console.info(
+      `[Oneiros XGB] Payload OK: ${payloadCheck.rows.toLocaleString()} rows, ` +
+      `${payloadCheck.features} features, ~${Math.round(payloadCheck.estimatedJsonBytes / 1024)} KB`,
+    )
+
+    set({ xgbStatusMessage: 'Serializing training data…' })
+    await deferWork()
+
+    const trainConfig = {
+      task:                 config.xgbTask,
+      objective:            config.xgbObjective || undefined,
+      nEstimators:          config.xgbNEstimators,
+      maxDepth:             config.xgbMaxDepth,
+      learningRate:         config.xgbLearningRate,
+      subsample:            config.xgbSubsample,
+      colsampleBytree:      config.xgbColsampleBytree,
+      minChildWeight:       config.xgbMinChildWeight,
+      gamma:                config.xgbGamma,
+      regAlpha:             config.xgbRegAlpha,
+      regLambda:            config.xgbRegLambda,
+      earlyStoppingRounds:  config.xgbEarlyStoppingRounds,
+    }
+
+    const serialized = safeStringifyTrainingPayload(result.data, trainConfig)
+    if (!serialized.ok) {
+      fail('serialize', serialized.error, serialized.hint)
+      return
+    }
+
+    set({ xgbStatusMessage: 'Training XGBoost on server…' })
     await deferWork()
 
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15 * 60 * 1000)
+
       const res = await fetch(`${API_BASE}/api/xgboost/train`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: result.data,
-          config: {
-            task:                 config.xgbTask,
-            objective:            config.xgbObjective || undefined,
-            nEstimators:          config.xgbNEstimators,
-            maxDepth:             config.xgbMaxDepth,
-            learningRate:         config.xgbLearningRate,
-            subsample:            config.xgbSubsample,
-            colsampleBytree:      config.xgbColsampleBytree,
-            minChildWeight:       config.xgbMinChildWeight,
-            gamma:                config.xgbGamma,
-            regAlpha:             config.xgbRegAlpha,
-            regLambda:            config.xgbRegLambda,
-            earlyStoppingRounds:  config.xgbEarlyStoppingRounds,
-          },
-        }),
+        body: serialized.body,
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
 
-      const json = await res.json() as { error?: string; hint?: string } & Partial<XGBResult>
-      if (!res.ok) {
-        const msg = [json.error, json.hint].filter(Boolean).join(' — ')
-        set({ xgbStatus: 'error', xgbStatusMessage: '', xgbError: msg || `HTTP ${res.status}` })
+      let json: { error?: string; hint?: string } & Partial<XGBResult>
+      try {
+        json = await res.json() as typeof json
+      } catch {
+        fail(
+          'response',
+          `Server returned non-JSON (HTTP ${res.status}).`,
+          'The backend may have crashed. Restart with npm run dev:backend and retry.',
+        )
         return
       }
 
+      if (!res.ok) {
+        const msg = [json.error, json.hint].filter(Boolean).join(' — ')
+        fail('training', msg || `HTTP ${res.status}`, undefined)
+        return
+      }
+
+      console.info('[Oneiros XGB] Training complete')
       set({ xgbStatus: 'complete', xgbStatusMessage: '', xgbResult: json as XGBResult })
     } catch (err) {
-      set({
-        xgbStatus: 'error',
-        xgbStatusMessage: '',
-        xgbError: err instanceof Error ? err.message : 'Request failed',
-      })
+      if (err instanceof Error && err.name === 'AbortError') {
+        fail('training', 'Training timed out after 15 minutes.', 'Lower n_estimators or use fewer rows.')
+        return
+      }
+      fail(
+        'network',
+        err instanceof Error ? err.message : 'Request failed',
+        'Check that the backend is still running on port 8000.',
+      )
     }
   },
 

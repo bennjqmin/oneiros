@@ -4,6 +4,8 @@ import type { ValidationIssue, ValidationResult } from '../../types/validation'
 import type { AppNode, AppEdge } from '../../types/graph'
 import { executePipeline } from '../dataset/pipelineExecutor'
 import { inferTaskType } from '../dataset/datasetModelInfo'
+import { parsePipelineNodes } from '../compiler/pipelineGraph'
+import { checkInputDatasetSize, TRAINING_LIMITS } from '../dataset/trainingPayloadLimits'
 
 function targetStats(dataset: LoadedDataset, targetColumn: string) {
   const values = dataset.rows
@@ -18,7 +20,7 @@ export function validateTabularTraining(
   targetColumn: string | null,
   pipelineNodes: AppNode[],
   pipelineEdges: AppEdge[],
-  config: Pick<TrainingConfig, 'xgbTask' | 'xgbNEstimators' | 'xgbEarlyStoppingRounds'>,
+  config: Pick<TrainingConfig, 'xgbTask' | 'xgbNEstimators' | 'xgbEarlyStoppingRounds' | 'xgbObjective'>,
   options?: { pipelineMaxRows?: number; skipPipeline?: boolean },
 ): ValidationResult {
   const issues: ValidationIssue[] = []
@@ -31,6 +33,25 @@ export function validateTabularTraining(
       hint: 'Import a CSV or JSON file in the Dataset tab.',
     })
     return { issues, isValid: false }
+  }
+
+  const sizeCheck = checkInputDatasetSize(dataset)
+  if (sizeCheck.ok) {
+    if (dataset.rows.length > 50_000) {
+      issues.push({
+        severity: 'warning',
+        category: 'dataset',
+        message: `Large dataset (${dataset.rows.length.toLocaleString()} rows). Training may be slow or fail above ${TRAINING_LIMITS.maxInputRows.toLocaleString()} rows.`,
+        hint: 'Add pipeline filters if the browser tab freezes or crashes.',
+      })
+    }
+  } else {
+    issues.push({
+      severity: 'error',
+      category: 'dataset',
+      message: sizeCheck.error,
+      hint: sizeCheck.hint,
+    })
   }
 
   if (!targetColumn) {
@@ -104,6 +125,24 @@ export function validateTabularTraining(
         hint: 'Use a numeric column as target or switch to Classification.',
       })
     }
+    const { config: pipeConfig } = parsePipelineNodes(pipelineNodes, pipelineEdges)
+    if (pipeConfig.balanceClasses) {
+      issues.push({
+        severity: 'warning',
+        category: 'dataset',
+        message: 'Balance Classes is ignored for regression tasks.',
+        hint: 'Remove the Balance Classes node or switch Task to Classification.',
+      })
+    }
+    const objective = config.xgbObjective || 'reg:squarederror'
+    if (objective === 'reg:squaredlogerror' && numeric.some((v) => (v as number) <= -1)) {
+      issues.push({
+        severity: 'error',
+        category: 'config',
+        message: 'Squared log error requires all targets to be greater than -1.',
+        hint: 'Use reg:squarederror or shift/rescale your target column.',
+      })
+    }
   }
 
   if (
@@ -130,20 +169,22 @@ export function validateTabularTraining(
           ...(options?.pipelineMaxRows != null ? { maxRows: options.pipelineMaxRows } : {}),
         },
       )
-  if (pipelineResult && !pipelineResult.ok) {
-    issues.push({
-      severity: 'error',
-      category: 'dataset',
-      message: pipelineResult.error,
-      hint: 'Fix the preprocessing pipeline in Dataset → Pipeline.',
-    })
-  } else if (pipelineResult?.data.featureCount === 0) {
-    issues.push({
-      severity: 'error',
-      category: 'dataset',
-      message: 'Pipeline produced zero features.',
-      hint: 'Add numeric features or encode categorical columns in the pipeline.',
-    })
+  if (pipelineResult !== null) {
+    if (pipelineResult.ok === false) {
+      issues.push({
+        severity: 'error',
+        category: 'dataset',
+        message: pipelineResult.error,
+        hint: 'Fix the preprocessing pipeline in Dataset → Pipeline.',
+      })
+    } else if (pipelineResult.data.featureCount === 0) {
+      issues.push({
+        severity: 'error',
+        category: 'dataset',
+        message: 'Pipeline produced zero features.',
+        hint: 'Add numeric features or encode categorical columns in the pipeline.',
+      })
+    }
   }
 
   return {
