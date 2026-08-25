@@ -63,6 +63,11 @@ pip install mne          # EDF biosignal support
 
 The first training run may download built-in datasets (MNIST, CIFAR-10, etc.) into `backend/data/`.
 
+**Caution: On MacOS you'll need to install OpenMP Libs**
+```bash
+brew install libomp
+```
+
 ### 4. Run the app
 
 From the repo root, start both services:
